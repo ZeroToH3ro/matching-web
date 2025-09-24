@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Github/match-me/**)",
+      "mcp__filesystem__read_multiple_files",
+      "Bash(powershell.exe:*)",
+      "mcp__brave-search__brave_web_search",
+      "Bash(dir:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
