@@ -47,6 +47,7 @@ export default function UserMenu({
             as="span"
             className="h-14 flex flex-row"
             aria-label="username"
+            key="username_display"
           >
             Signed in as {userInfo?.name}
           </DropdownItem>
@@ -54,12 +55,14 @@ export default function UserMenu({
         <DropdownItem
           as={Link}
           href="/members/edit"
+          key="edit_profile"
         >
           Edit profile
         </DropdownItem>
         <DropdownItem
           color="danger"
-          onClick={async () => signOutUser()}
+          onClick={async () => signOutUser()} 
+          key="logout"        
         >
           Log out
         </DropdownItem>
