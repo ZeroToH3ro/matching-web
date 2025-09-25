@@ -64,5 +64,13 @@
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "prettier": {
+    "semi": false,
+    "singleQuote": true,
+    "printWidth": 80,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "arrowParens": "avoid"
   }
 }
