@@ -2,7 +2,7 @@
 
 import CardWrapper from "@/components/CardWrapper";
 import {
-  ProfileSchema,
+  type ProfileSchema,
   profileSchema,
 } from "@/lib/schemas/RegisterSchema";
 import { zodResolver } from "@hookform/resolvers/zod";

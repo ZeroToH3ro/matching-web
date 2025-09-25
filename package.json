@@ -2,6 +2,7 @@
   "name": "match-me",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.17.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,12 +10,14 @@
     "lint": "next lint",
     "vercel-build": "prisma generate && prisma migrate deploy && prisma db seed && next build",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "doppler": "doppler secrets download --no-file --format env > .env"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.4.2",
     "@hookform/resolvers": "^3.9.0",
     "@mysten/dapp-kit": "^0.18.0",
+    "@mysten/enoki": "^0.12.1",
     "@mysten/seal": "^0.6.0",
     "@mysten/sui": "^1.38.0",
     "@mysten/walrus": "^0.7.0",
@@ -62,5 +65,13 @@
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "prettier": {
+    "semi": false,
+    "singleQuote": true,
+    "printWidth": 80,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "arrowParens": "avoid"
   }
 }

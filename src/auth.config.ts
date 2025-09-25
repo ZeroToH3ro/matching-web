@@ -1,38 +1,188 @@
-import Credentials from "next-auth/providers/credentials"
-import Google from "next-auth/providers/google"
-import Github from "next-auth/providers/github"
-import type { NextAuthConfig } from "next-auth"
+import type { NextAuthConfig } from 'next-auth'
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client'
+import { parseSerializedSignature } from '@mysten/sui/cryptography'
+import { verifyPersonalMessageSignature } from '@mysten/sui/verify'
+import { Web3AuthMessage } from '@/lib/Web3AuthMessage'
+import Credentials from 'next-auth/providers/credentials'
 import { loginSchema } from './lib/schemas/LoginSchema'
-import { getUserByEmail } from './app/actions/authActions';
-import { compare } from 'bcryptjs';
+// import { getOrCreateUserByWalletAddress } from './app/actions/authActions'
+import type { User } from 'next-auth'
+import { PrismaClient } from '@prisma/client'
+
+const SUI_NETWORK = process.env.SUI_NETWORK as 'testnet' | 'mainnet'
+const prisma = new PrismaClient()
 
 export default {
-    providers: [
-        Google({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET
-        }),
-        Github({
-            clientId: process.env.GITHUB_CLIENT_ID,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET
-        }),
-        Credentials({
-            name: 'credentials',
-            async authorize(creds) {
-                const validated = loginSchema.safeParse(creds);
+  providers: [
+    Credentials({
+      name: 'Enoki™ Wallet',
+      credentials: {
+        message: { label: 'Message', type: 'text' },
+        signature: { label: 'Signature', type: 'text' },
+      },
+      async authorize(creds): Promise<User | null> {
+        const { success, data } = loginSchema.safeParse(creds)
+        if (!success) return null
 
-                if (validated.success) {
-                    const { email, password } = validated.data;
+        const { message, signature } = data
 
-                    const user = await getUserByEmail(email);
+        console.group('verifyAuthMessageAndDeleteNonce')
+        try {
+          const authMsg = Web3AuthMessage.fromString(message)
+          console.log('» appName:', authMsg.appName)
+          console.log('» walletAddress:', authMsg.walletAddress)
+          console.log('» nonce:', authMsg.nonce)
+          // const nonce = await getCsrfToken()
 
-                    if (!user || !user.passwordHash || !(await compare(password, user.passwordHash))) return null;
+          // if (authMsg.nonce !== nonce) {
+          //   console.log('⚠️ Nonce does not match')
+          //   return null
+          // }
 
-                    return user;
-                }
+          // Verify signature
+          const signatureScheme = parseSerializedSignature(signature)
+          console.log('» signatureScheme:', signatureScheme)
 
-                return null;
+          const useZkLogin = signatureScheme.signatureScheme === 'ZkLogin'
+          const result = await verifyPersonalMessageSignature(
+            new TextEncoder().encode(message),
+            signature,
+            {
+              address: authMsg.walletAddress,
+              client: useZkLogin
+                ? new SuiClient({ url: getFullnodeUrl(SUI_NETWORK) })
+                : undefined,
             }
-        })
-    ],
+          )
+          console.log('» Verification result:', result)
+          if (!result) {
+            console.log('⚠️ Signature verification failed')
+            return null
+          }
+          const user = await prisma.user.upsert({
+            where: { id: authMsg.walletAddress },
+            update: {},
+            create: { id: authMsg.walletAddress },
+          })
+          return user
+        } catch (e) {
+          console.error('🚨 Error verifying message', e)
+          return null
+        } finally {
+          console.groupEnd()
+        }
+      },
+    }),
+  ],
 } satisfies NextAuthConfig
+
+// import { PrismaAdapter } from '@auth/prisma-adapter'
+// import { PrismaClient, Role } from '@prisma/client'
+// import NextAuth, { type User } from 'next-auth'
+// import CredentialsProvider from 'next-auth/providers/credentials'
+// import { loginSchema } from './lib/schemas/LoginSchema'
+// import { Web3AuthMessage } from './lib/Web3AuthMessage'
+// import { parseSerializedSignature } from '@mysten/sui/cryptography'
+// import { verifyPersonalMessageSignature } from '@mysten/sui/verify'
+// import { getFullnodeUrl, SuiClient } from '@mysten/sui/client'
+
+// const SUI_NETWORK = process.env.SUI_NETWORK as 'testnet' | 'mainnet'
+// const prisma = new PrismaClient()
+
+// // For more information on each option (and a full list of options) go to
+// // https://next-auth.js.org/configuration/options
+// export const { auth, handlers, signIn, signOut } = NextAuth(req => {
+//   const providers = [
+//     CredentialsProvider({
+//       name: 'Enoki™ Wallet',
+//       credentials: {
+//         message: { label: 'Message', type: 'text' },
+//         signature: { label: 'Signature', type: 'text' },
+//       },
+//       async authorize(creds): Promise<User | null> {
+//         const { success, data } = loginSchema.safeParse(creds)
+//         if (!success) return null
+
+//         const { message, signature } = data
+
+//         console.group('verifyAuthMessageAndDeleteNonce')
+//         try {
+//           const authMsg = Web3AuthMessage.fromString(message)
+//           console.log('» appName:', authMsg.appName)
+//           console.log('» walletAddress:', authMsg.walletAddress)
+//           console.log('» nonce:', authMsg.nonce)
+//           // const nonce = await getCsrfToken()
+
+//           // if (authMsg.nonce !== nonce) {
+//           //   console.log('⚠️ Nonce does not match')
+//           //   return null
+//           // }
+
+//           // Verify signature
+//           const signatureScheme = parseSerializedSignature(signature)
+//           console.log('» signatureScheme:', signatureScheme)
+
+//           const useZkLogin = signatureScheme.signatureScheme === 'ZkLogin'
+//           const result = await verifyPersonalMessageSignature(
+//             new TextEncoder().encode(message),
+//             signature,
+//             {
+//               address: authMsg.walletAddress,
+//               client: useZkLogin
+//                 ? new SuiClient({ url: getFullnodeUrl(SUI_NETWORK) })
+//                 : undefined,
+//             }
+//           )
+//           console.log('» Verification result:', result)
+//           if (!result) {
+//             console.log('⚠️ Signature verification failed')
+//             return null
+//           }
+//           const user = await prisma.user.upsert({
+//             where: { id: authMsg.walletAddress },
+//             update: {},
+//             create: { id: authMsg.walletAddress },
+//           })
+//           return user
+//         } catch (e) {
+//           console.error('🚨 Error verifying message', e)
+//           return null
+//         } finally {
+//           console.groupEnd()
+//         }
+//       },
+//     }),
+//   ]
+
+//   // const isDefaultSigninPage =
+//   //   req && req.method === 'GET' && req.url.includes('signin')
+
+//   // // Hide Sign-In with Ethereum from default sign page
+//   // if (isDefaultSigninPage) providers.pop()
+
+//   return {
+//     // https://next-auth.js.org/configuration/providers/oauth
+//     providers,
+//     session: { strategy: 'jwt' },
+//     secret: process.env.NEXTAUTH_SECRET,
+//     adapter: PrismaAdapter(prisma),
+//     callbacks: {
+//       async jwt({ user, token }) {
+//         if (user) {
+//           token.profileComplete = user.profileComplete
+//           token.role = user.role
+//         }
+//         return token
+//       },
+//       async session({ session, token }) {
+//         if (token.sub && session.user) {
+//           session.user.id = token.sub
+//           session.user.profileComplete = token.profileComplete as boolean
+//           session.user.role = token.role as Role
+//         }
+
+//         return session
+//       },
+//     },
+//   }
+// })

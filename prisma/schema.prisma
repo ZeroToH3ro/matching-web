@@ -27,6 +27,7 @@ model Account {
 }
 
 model User {
+  // `id` is the wallet address
   id              String    @id @default(cuid())
   name            String?
   email           String?   @unique
