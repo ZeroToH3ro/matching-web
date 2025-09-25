@@ -17,6 +17,7 @@
     "@auth/prisma-adapter": "^2.4.2",
     "@hookform/resolvers": "^3.9.0",
     "@mysten/dapp-kit": "^0.18.0",
+    "@mysten/enoki": "^0.12.1",
     "@mysten/seal": "^0.6.0",
     "@mysten/sui": "^1.38.0",
     "@mysten/walrus": "^0.7.0",

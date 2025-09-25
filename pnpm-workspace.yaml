@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - '@heroui/shared-utils'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - protobufjs
+  - unrs-resolver
