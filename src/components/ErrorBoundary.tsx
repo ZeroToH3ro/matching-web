@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Component, ReactNode } from "react";
+import React, { Component, type ReactNode } from "react";
 import { Button } from "@nextui-org/react";
 import { FaExclamationTriangle, FaRedo } from "react-icons/fa";
 

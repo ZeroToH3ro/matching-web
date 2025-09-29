@@ -4,7 +4,7 @@ import {
   CardBody,
   CardFooter,
 } from "@nextui-org/react";
-import React, { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 
 type Props = {
   header: ReactNode | string;

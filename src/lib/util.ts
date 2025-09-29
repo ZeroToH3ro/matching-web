@@ -1,6 +1,6 @@
 import { differenceInYears, format, formatDistance } from 'date-fns';
-import { FieldValues, Path, UseFormSetError } from 'react-hook-form';
-import { ZodIssue } from 'zod';
+import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
+import type { ZodIssue } from 'zod';
 
 export function calculateAge(dob: Date) {
     return differenceInYears(new Date(), dob);

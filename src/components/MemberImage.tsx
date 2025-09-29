@@ -1,7 +1,7 @@
 "use client";
 
 import { auth } from "@/auth";
-import { Photo, Role } from "@prisma/client";
+import type { Photo, Role } from "@prisma/client";
 import { CldImage } from "next-cloudinary";
 import React from "react";
 import { Button, Image } from "@nextui-org/react";

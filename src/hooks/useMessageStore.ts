@@ -1,4 +1,4 @@
-import { MessageDto } from '@/types';
+import type { MessageDto } from '@/types';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 

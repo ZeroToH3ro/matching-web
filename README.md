@@ -30,8 +30,8 @@
 3. Set up environment variables in .env file
 4. Set up Prisma database
 ```bash
-npx prisma generate
-npx prisma migrate dev
-npx prisma db seed
+pnpm prisma generate
+pnpm prisma migrate dev
+pnpm prisma db seed
 ```
-5. Run the development server `npm run dev`
+5. Run the development server `pnpm run dev`

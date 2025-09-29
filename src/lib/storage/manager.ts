@@ -1,4 +1,4 @@
-import { 
+import type { 
   StorageProvider, 
   StorageConfig, 
   StorageStrategy,
@@ -9,7 +9,7 @@ import {
 } from './types';
 import { CloudinaryStorageProvider } from './providers/cloudinary';
 import { WalrusStorageProvider } from './providers/walrus';
-import { SealAccessControl, SealConfig } from './providers/seal';
+import { SealAccessControl, type SealConfig } from './providers/seal';
 
 export class StorageManager {
   private providers: Map<string, StorageProvider> = new Map();

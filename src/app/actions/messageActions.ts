@@ -1,7 +1,7 @@
 'use server';
 
-import { MessageSchema, messageSchema } from '@/lib/schemas/MessageSchema';
-import { ActionResult, MessageDto } from '@/types';
+import { type MessageSchema, messageSchema } from '@/lib/schemas/MessageSchema';
+import type { ActionResult, MessageDto } from '@/types';
 import { getAuthUserId } from './authActions';
 import { prisma } from '@/lib/prisma';
 import { mapMessageToMessageDto } from '@/lib/mappings';

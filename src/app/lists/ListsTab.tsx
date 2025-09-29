@@ -1,14 +1,14 @@
 "use client";
 
 import { Tab, Tabs } from "@nextui-org/react";
-import { Member } from "@prisma/client";
+import type { Member } from "@prisma/client";
 import {
   usePathname,
   useRouter,
   useSearchParams,
 } from "next/navigation";
 import React, { useTransition } from "react";
-import { Key } from "react";
+import type { Key } from "react";
 import MemberCard from "../members/MemberCard";
 import LoadingComponent from "@/components/Loading";
 

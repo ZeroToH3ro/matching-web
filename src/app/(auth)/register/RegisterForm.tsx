@@ -4,7 +4,7 @@ import { registerUser } from "@/app/actions/authActions";
 import {
   profileSchema,
   registerSchema,
-  RegisterSchema,
+  type RegisterSchema,
 } from "@/lib/schemas/RegisterSchema";
 import { handleFormServerErrors } from "@/lib/util";
 import {

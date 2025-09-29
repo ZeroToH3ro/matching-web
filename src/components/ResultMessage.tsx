@@ -1,4 +1,4 @@
-import { ActionResult } from "@/types";
+import type { ActionResult } from "@/types";
 import clsx from "clsx";
 import {
   FaCheckCircle,

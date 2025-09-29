@@ -1,8 +1,8 @@
 'use server'
 
-import { MemberEditSchema, memberEditSchema } from '@/lib/schemas/MemberEditSchema';
-import { ActionResult } from '@/types';
-import { Member, Photo } from '@prisma/client';
+import { type MemberEditSchema, memberEditSchema } from '@/lib/schemas/MemberEditSchema';
+import type { ActionResult } from '@/types';
+import type { Member, Photo } from '@prisma/client';
 import { getAuthUserId } from './authActions';
 import { prisma } from '@/lib/prisma';
 import { cloudinary } from '@/lib/cloudinary';

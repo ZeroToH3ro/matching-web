@@ -1,9 +1,9 @@
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { useEffect, ChangeEvent, useTransition } from 'react';
+import { useEffect, type ChangeEvent, useTransition } from 'react';
 import { FaMale, FaFemale } from 'react-icons/fa';
 import useFilterStore from './useFilterStore';
-import { Selection } from '@nextui-org/react';
+import type { Selection } from '@nextui-org/react';
 import usePaginationStore from './usePaginationStore';
 
 export const useFilters = () => {

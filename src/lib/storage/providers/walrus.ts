@@ -1,6 +1,6 @@
 import { WalrusClient } from '@mysten/walrus';
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
-import { 
+import type { 
   StorageProvider, 
   UploadOptions, 
   UploadResult, 

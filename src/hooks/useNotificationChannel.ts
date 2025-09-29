@@ -1,5 +1,5 @@
 import { pusherClient } from '@/lib/pusher';
-import { MessageDto } from '@/types';
+import type { MessageDto } from '@/types';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Channel } from 'pusher-js'
 import { useCallback, useEffect, useRef } from 'react'

@@ -5,8 +5,8 @@ import {
   CardFooter,
   Button,
 } from "@nextui-org/react";
-import { ReactNode } from "react";
-import { IconType } from "react-icons/lib";
+import type { ReactNode } from "react";
+import type { IconType } from "react-icons/lib";
 
 type Props = {
   body?: ReactNode;

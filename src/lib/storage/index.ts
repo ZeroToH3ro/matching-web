@@ -1,6 +1,6 @@
 import { StorageManager } from './manager';
-import { StorageConfig, StorageStrategy } from './types';
-import { SealConfig } from './providers/seal';
+import type { StorageConfig, StorageStrategy } from './types';
+import type { SealConfig } from './providers/seal';
 
 // Export types
 export * from './types';

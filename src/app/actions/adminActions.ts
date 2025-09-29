@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { getUserRole } from './authActions';
-import { Photo } from '@prisma/client';
+import type { Photo } from '@prisma/client';
 import { cloudinary } from '@/lib/cloudinary';
 
 

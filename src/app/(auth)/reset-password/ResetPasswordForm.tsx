@@ -4,10 +4,10 @@ import { resetPassword } from "@/app/actions/authActions";
 import CardWrapper from "@/components/CardWrapper";
 import ResultMessage from "@/components/ResultMessage";
 import {
-  ResetPasswordSchema,
+  type ResetPasswordSchema,
   resetPasswordSchema,
 } from "@/lib/schemas/ForgotPasswordSchema";
-import { ActionResult } from "@/types";
+import type { ActionResult } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Input } from "@nextui-org/react";
 import { useSearchParams } from "next/navigation";

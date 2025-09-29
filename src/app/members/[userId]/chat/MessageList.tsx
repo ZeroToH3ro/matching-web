@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageDto } from "@/types";
+import type { MessageDto } from "@/types";
 import React, {
   useCallback,
   useEffect,

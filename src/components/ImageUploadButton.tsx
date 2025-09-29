@@ -3,7 +3,7 @@
 import React from "react";
 import {
   CldUploadButton,
-  CloudinaryUploadWidgetResults,
+  type CloudinaryUploadWidgetResults,
 } from "next-cloudinary";
 import { HiPhoto } from "react-icons/hi2";
 
