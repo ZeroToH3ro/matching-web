@@ -5,9 +5,10 @@ import { useEffect } from 'react'
 interface Props {
   googleClientId: string
   enokiApiKey: string
+  redirectUrl: string
 }
 
-export function RegisterEnokiWallets({ googleClientId, enokiApiKey }: Props) {
+export function RegisterEnokiWallets({ googleClientId, enokiApiKey,redirectUrl }: Props) {
   const { client, network } = useSuiClientContext()
 
   useEffect(() => {
@@ -17,7 +18,7 @@ export function RegisterEnokiWallets({ googleClientId, enokiApiKey }: Props) {
       apiKey: enokiApiKey,
       providers: {
         // Provide the client IDs for each of the auth providers you want to use:
-        google: { clientId: googleClientId },
+        google: { clientId: googleClientId,redirectUrl: redirectUrl },
         // facebook: { clientId: clientConfig.FACEBOOK_CLIENT_ID },
         // twitch: { clientId: clientConfig.TWITCH_CLIENT_ID }
       },

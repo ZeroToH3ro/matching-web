@@ -14,6 +14,7 @@ const {
   NEXT_PUBLIC_ENOKI_KEY = '',
   GOOGLE_CLIENT_ID = '',
   SUI_NETWORK = 'testnet',
+  NEXT_PUBLIC_BASE_URL = 'http://localhost:3000',
 } = process.env
 
 export default async function RootLayout({
@@ -30,6 +31,7 @@ export default async function RootLayout({
         <Providers
           enokiApiKey={NEXT_PUBLIC_ENOKI_KEY}
           googleClientId={GOOGLE_CLIENT_ID}
+          redirectUrl={NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}
           suiNetwork={SUI_NETWORK as 'mainnet' | 'testnet'}
           profileComplete={profileComplete}
           userId={userId}

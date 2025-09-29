@@ -162,7 +162,7 @@ export async function completeSocialLoginProfile(
           profileComplete: true,
           member: {
             update: {
-              name: session.user.name as string,
+              name: data.name,
               image: session.user.image,
               gender: data.gender,
               dateOfBirth: new Date(data.dateOfBirth),
@@ -182,7 +182,7 @@ export async function completeSocialLoginProfile(
           profileComplete: true,
           member: {
             create: {
-              name: session.user.name as string,
+              name: data.name,
               image: session.user.image,
               gender: data.gender,
               dateOfBirth: new Date(data.dateOfBirth),

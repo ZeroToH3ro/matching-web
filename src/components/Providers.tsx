@@ -26,6 +26,7 @@ interface Props {
   suiNetwork: 'mainnet' | 'testnet'
   googleClientId: string
   enokiApiKey: string
+  redirectUrl: string
 }
 
 export default function Providers({
@@ -35,6 +36,7 @@ export default function Providers({
   suiNetwork,
   googleClientId,
   enokiApiKey,
+  redirectUrl,
 }: Props) {
   const isUnreadCountSet = useRef(false)
   const { updateUnreadCount } = useMessageStore(state => ({
@@ -70,6 +72,7 @@ export default function Providers({
             <RegisterEnokiWallets
               googleClientId={googleClientId}
               enokiApiKey={enokiApiKey}
+              redirectUrl={redirectUrl}
             />
             <WalrusClientProvider>
               <WalletProvider autoConnect preferredWallets={preferredWallets}>
