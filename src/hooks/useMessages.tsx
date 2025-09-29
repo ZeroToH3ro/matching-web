@@ -2,13 +2,13 @@ import {
   deleteMessage,
   getMessagesByContainer,
 } from "@/app/actions/messageActions";
-import { MessageDto } from "@/types";
+import type { MessageDto } from "@/types";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import {
   useState,
   useCallback,
-  Key,
+  type Key,
   useEffect,
   useRef,
 } from "react";

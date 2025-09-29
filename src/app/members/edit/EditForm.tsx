@@ -2,10 +2,10 @@
 
 import {
   memberEditSchema,
-  MemberEditSchema,
+  type MemberEditSchema,
 } from "@/lib/schemas/MemberEditSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Member } from "@prisma/client";
+import type { Member } from "@prisma/client";
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import {

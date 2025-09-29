@@ -1,10 +1,10 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { Member, Photo } from '@prisma/client';
+import type { Member, Photo } from '@prisma/client';
 import { addYears } from 'date-fns';
 import { getAuthUserId } from './authActions';
-import { GetMemberParams, PaginatedResponse } from '@/types';
+import type { GetMemberParams, PaginatedResponse } from '@/types';
 
 function getAgeRange(ageRange: string): Date[] {
     const [minAge, maxAge] = ageRange.split(',');

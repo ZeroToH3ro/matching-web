@@ -1,6 +1,6 @@
 import { SealClient } from '@mysten/seal';
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
-import { AccessPolicy, AccessRule } from '../types';
+import type { AccessPolicy, AccessRule } from '../types';
 
 export interface SealConfig {
   suiNetwork: 'mainnet' | 'testnet' | 'devnet';

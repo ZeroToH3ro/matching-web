@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { 
+import type { 
   StorageProvider, 
   UploadOptions, 
   UploadResult, 

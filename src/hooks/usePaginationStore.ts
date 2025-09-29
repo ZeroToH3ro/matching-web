@@ -1,4 +1,4 @@
-import { PagingResult } from '@/types'
+import type { PagingResult } from '@/types'
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 

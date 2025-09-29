@@ -2,7 +2,7 @@
 
 import { createMessage } from "@/app/actions/messageActions";
 import {
-  MessageSchema,
+  type MessageSchema,
   messageSchema,
 } from "@/lib/schemas/MessageSchema";
 import { handleFormServerErrors } from "@/lib/util";

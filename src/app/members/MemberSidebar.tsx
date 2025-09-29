@@ -10,7 +10,7 @@ import {
   Divider,
   Image,
 } from "@nextui-org/react";
-import { Member } from "@prisma/client";
+import type { Member } from "@prisma/client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";

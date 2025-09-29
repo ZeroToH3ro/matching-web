@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageDto } from "@/types";
+import type { MessageDto } from "@/types";
 import React, { useRef } from "react";
 import clsx from "clsx";
 import { Avatar } from "@nextui-org/react";

@@ -3,7 +3,7 @@ import { getMembers } from "../actions/memberActions";
 import MemberCard from "./MemberCard";
 import { fetchCurrentUserLikeIds } from "../actions/likeActions";
 import PaginationComponent from "@/components/PaginationComponent";
-import { GetMemberParams } from "@/types";
+import type { GetMemberParams } from "@/types";
 import EmptyState from "@/components/EmptyState";
 
 export default async function MembersPage({

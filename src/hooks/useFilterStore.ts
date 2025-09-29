@@ -1,4 +1,4 @@
-import { UserFilters } from '@/types'
+import type { UserFilters } from '@/types'
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
