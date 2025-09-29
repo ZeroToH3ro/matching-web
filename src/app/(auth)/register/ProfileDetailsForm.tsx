@@ -24,6 +24,16 @@ export default function ProfileDetailsForm() {
 
   return (
     <div className="space-y-4">
+      <Input
+        defaultValue={getValues("name")}
+        label="Name"
+        variant="bordered"
+        {...register("name")}
+        isInvalid={!!errors.name}
+        errorMessage={
+          errors.name?.message as string
+        }
+      />
       <Select
         defaultSelectedKeys={getValues("gender")}
         label="Gender"

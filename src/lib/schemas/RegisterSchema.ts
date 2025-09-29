@@ -10,6 +10,7 @@ export const registerSchema = z.object({
 })
 
 export const profileSchema = z.object({
+    name: z.string().min(3),
     gender: z.string().min(1),
     description: z.string().min(1),
     city: z.string().min(1),
