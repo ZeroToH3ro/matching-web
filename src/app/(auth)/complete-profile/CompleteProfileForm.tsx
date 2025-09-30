@@ -15,6 +15,8 @@ import ProfileForm from "../register/ProfileDetailsForm";
 import { Button } from "@nextui-org/react";
 import { completeSocialLoginProfile } from "@/app/actions/authActions";
 import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function CompleteProfileForm() {
   const methods = useForm<ProfileSchema>({
@@ -27,16 +29,23 @@ export default function CompleteProfileForm() {
     formState: { errors, isSubmitting, isValid },
   } = methods;
 
+  const router = useRouter();
+  const { update } = useSession();
   const onSubmit = async (
     data: ProfileSchema
   ) => {
+    console.log(`data: ${JSON.stringify(data)}`);
     const result =
       await completeSocialLoginProfile(data);
 
+    console.log(`result: ${JSON.stringify(result)}`);
     if (result.status === "success") {
-      signIn(result.data, {
-        callbackUrl: "/members",
-      });
+      console.log("Update profile successfully");
+      await update();
+      router.push("/members");``
+      router.refresh();
+    } else {
+      console.log("failed update profile")
     }
   };
 
