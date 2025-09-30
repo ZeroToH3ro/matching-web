@@ -49,23 +49,28 @@ export default function ResetPasswordForm() {
       body={
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col space-y-4"
+          className="flex flex-col gap-6"
         >
           <Input
             type="password"
             placeholder="Password"
             variant="bordered"
+            labelPlacement="outside"
             defaultValue=""
             {...register("password")}
             isInvalid={!!errors.password}
             errorMessage={
               errors.password?.message as string
             }
+            classNames={{
+              inputWrapper: "h-12"
+            }}
           />
           <Input
             type="password"
             placeholder="Confirm Password"
             variant="bordered"
+            labelPlacement="outside"
             defaultValue=""
             {...register("confirmPassword")}
             isInvalid={!!errors.confirmPassword}
@@ -73,6 +78,9 @@ export default function ResetPasswordForm() {
               errors.confirmPassword
                 ?.message as string
             }
+            classNames={{
+              inputWrapper: "h-12"
+            }}
           />
           <Button
             type="submit"

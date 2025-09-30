@@ -73,19 +73,24 @@ export default function EditForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col space-y-4"
+      className="flex flex-col gap-6"
     >
       <Input
         label="Name"
         variant="bordered"
+        labelPlacement="outside"
         {...register("name")}
         defaultValue={member.name}
         isInvalid={!!errors.name}
         errorMessage={errors.name?.message}
+        classNames={{
+          inputWrapper: "h-12"
+        }}
       />
       <Textarea
         label="Description"
         variant="bordered"
+        labelPlacement="outside"
         {...register("description")}
         defaultValue={member.description}
         isInvalid={!!errors.description}
@@ -96,18 +101,26 @@ export default function EditForm({
         <Input
           label="City"
           variant="bordered"
+          labelPlacement="outside"
           {...register("city")}
           defaultValue={member.city}
           isInvalid={!!errors.city}
           errorMessage={errors.city?.message}
+          classNames={{
+            inputWrapper: "h-12"
+          }}
         />
         <Input
           label="Country"
           variant="bordered"
+          labelPlacement="outside"
           {...register("country")}
           defaultValue={member.country}
           isInvalid={!!errors.country}
           errorMessage={errors.country?.message}
+          classNames={{
+            inputWrapper: "h-12"
+          }}
         />
       </div>
       {errors.root?.serverError && (

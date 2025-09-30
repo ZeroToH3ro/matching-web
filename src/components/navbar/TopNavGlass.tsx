@@ -40,6 +40,9 @@ export default async function TopNavGlass() {
     <>
       <Navbar
         maxWidth="full"
+        isBlurred
+        isBordered
+        position="sticky"
         className="bg-white/70 backdrop-blur-xl border-b border-gray-200/60 shadow-sm relative before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/80 before:to-gray-50/30"
         classNames={{
           item: [

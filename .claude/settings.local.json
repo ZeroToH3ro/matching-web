@@ -8,6 +8,7 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "byterover-mcp"
+    "byterover-mcp",
+    "shadcn-ui"
   ]
 }

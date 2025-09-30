@@ -1,16 +1,20 @@
+'use client'
+
 import { useNetworkConfig } from '@/configs/networkConfig'
 import { useSuiClient } from '@mysten/dapp-kit'
 import type { SuiClient } from '@mysten/sui/client'
-import { WalrusClient } from '@mysten/walrus'
-import { createContext, type ReactNode, useMemo } from 'react'
+import type { WalrusClient } from '@mysten/walrus'
+import { createContext, type ReactNode, useEffect, useState } from 'react'
 
-function createWalrusClient(
+async function createWalrusClient(
   suiClient: SuiClient,
   network: 'mainnet' | 'testnet'
-): WalrusClient | null {
+): Promise<WalrusClient | null> {
   if (typeof window === 'undefined') return null
 
-  return new WalrusClient({
+  const { WalrusClient: WalrusClientClass } = await import('@mysten/walrus')
+
+  return new WalrusClientClass({
     network,
     suiClient,
     uploadRelay: {
@@ -31,10 +35,13 @@ export const WalrusClientContext = createContext<WalrusClient | null>(null)
 export const WalrusClientProvider: React.FC<Props> = ({ children }) => {
   const suiClient = useSuiClient()
   const network = useNetworkConfig()
-  const walrusClient = useMemo(
-    () => createWalrusClient(suiClient, network.name),
-    [suiClient, network]
-  )
+  const [walrusClient, setWalrusClient] = useState<WalrusClient | null>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      createWalrusClient(suiClient, network.name).then(setWalrusClient)
+    }
+  }, [suiClient, network.name])
 
   return (
     <WalrusClientContext.Provider value={walrusClient}>

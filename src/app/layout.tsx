@@ -37,7 +37,7 @@ export default async function RootLayout({
           userId={userId}
         >
           <TopNav />
-          <main className="container mx-auto">{children}</main>
+          <main className="container mx-auto pt-6">{children}</main>
         </Providers>
       </body>
     </html>

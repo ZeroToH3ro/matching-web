@@ -15,6 +15,7 @@ import { networkConfig } from '@/configs/networkConfig'
 import { RegisterEnokiWallets } from '@/providers/RegisterEnokiWallets'
 import { WalrusClientProvider } from '@/providers/WalrusClientContext'
 import { SignInWithWalletDialog } from './SignInWithWalletDialog'
+import AuthStateSync from './AuthStateSync'
 
 const preferredWallets = ['Enoki Google']
 const queryClient = new QueryClient()
@@ -62,6 +63,7 @@ export default function Providers({
   useNotificationChannel(userId, profileComplete)
   return (
     <SessionProvider>
+      <AuthStateSync />
       <QueryClientProvider client={queryClient}>
         <NextUIProvider>
           <ToastContainer position="bottom-right" hideProgressBar />

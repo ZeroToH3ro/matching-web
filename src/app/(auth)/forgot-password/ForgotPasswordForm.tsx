@@ -37,16 +37,20 @@ export default function ForgotPasswordForm() {
       body={
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col space-y-4"
+          className="flex flex-col gap-6"
         >
           <Input
             type="email"
             placeholder="Email address"
             variant="bordered"
+            labelPlacement="outside"
             defaultValue=""
             {...register("email", {
               required: true,
             })}
+            classNames={{
+              inputWrapper: "h-12"
+            }}
           />
           <Button
             type="submit"
