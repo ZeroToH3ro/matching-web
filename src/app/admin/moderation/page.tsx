@@ -1,6 +1,10 @@
 import { getUnapprovedPhotos } from "@/app/actions/adminActions";
-import MemberPhotos from "@/components/MemberPhotos";
 import { Divider } from "@nextui-org/react";
+import dynamicImport from "next/dynamic";
+
+const MemberPhotos = dynamicImport(() => import("@/components/MemberPhotos"), {
+  loading: () => <div className="text-center p-8">Loading photos...</div>
+});
 
 export const dynamic = "force-dynamic";
 

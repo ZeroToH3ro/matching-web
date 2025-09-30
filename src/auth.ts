@@ -7,10 +7,30 @@ const prisma = new PrismaClient()
 
 const result = NextAuth({
   callbacks: {
-    async jwt({ user, token }) {
+    async jwt({ user, token, trigger, session }) {
       if (user) {
         token.profileComplete = user.profileComplete
         token.role = user.role
+      }
+      // When session is updated, fetch latest data from database
+      if (trigger === 'update') {
+        if (session?.profileComplete !== undefined) {
+          token.profileComplete = session.profileComplete
+        }
+        if (session?.role !== undefined) {
+          token.role = session.role
+        }
+        // Also fetch from DB to be sure
+        if (token.sub) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { profileComplete: true, role: true }
+          })
+          if (dbUser) {
+            token.profileComplete = dbUser.profileComplete
+            token.role = dbUser.role
+          }
+        }
       }
       return token
     },

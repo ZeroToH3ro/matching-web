@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { Button } from "@nextui-org/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import HomeLoginButton from "@/components/HomeLoginButton";
 
 const DynamicHeartAnimation = dynamic(
   () =>
@@ -69,13 +70,7 @@ export default async function Home() {
                   >
                     Start Meeting Singles
                   </Button>
-                  <Button
-                    as={Link}
-                    href="/login"
-                    className="bg-white text-pink-500 border-2 border-pink-500 text-xl px-12 py-8 rounded-full hover:bg-pink-50 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
-                  >
-                    Login
-                  </Button>
+                  <HomeLoginButton />
                 </div>
               )}
             </div>

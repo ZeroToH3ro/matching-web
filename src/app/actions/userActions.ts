@@ -111,10 +111,25 @@ export async function deleteImage(photo: Photo) {
 export async function getUserInfoForNav() {
     try {
         const userId = await getAuthUserId();
-        return prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { name: true, image: true }
+            select: {
+                name: true,
+                image: true,
+                member: {
+                    select: {
+                        name: true,
+                        image: true
+                    }
+                }
+            }
         })
+
+        // Prioritize member name and image over user name/image
+        return {
+            name: user?.member?.name || user?.name || null,
+            image: user?.member?.image || user?.image || null
+        }
     } catch (error) {
         console.log(error);
         throw error;

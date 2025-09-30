@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { auth } from './auth';
-import { authRoutes, publicRoutes } from './routes';
-import { Role } from '@prisma/client';
+
+const publicRoutes = ['/'];
+const authRoutes = ['/login', '/register', '/register/success', '/verify-email', '/forgot-password', '/reset-password'];
 
 export default auth((req) => {
     const { nextUrl } = req;
     const isLoggedIn = !!req.auth;
+    const pathname = nextUrl.pathname;
 
-    const isPublic = publicRoutes.includes(nextUrl.pathname);
-    const isAuthRoute = authRoutes.includes(nextUrl.pathname);
+    const isPublic = publicRoutes.includes(pathname);
+    const isAuthRoute = authRoutes.includes(pathname);
     const isProfileComplete = req.auth?.user?.profileComplete;
-    const isAdmin = req.auth?.user?.role === Role.ADMIN;
-    const isAdminRoute = nextUrl.pathname.startsWith('/admin');
+    const isAdmin = req.auth?.user?.role === 'ADMIN';
+    const isAdminRoute = pathname.startsWith('/admin');
 
     if (isPublic || isAdmin) {
         return NextResponse.next();
@@ -32,7 +34,7 @@ export default auth((req) => {
         return NextResponse.redirect(new URL('/login', nextUrl))
     }
 
-    if (isLoggedIn && !isProfileComplete && nextUrl.pathname !== '/complete-profile') {
+    if (isLoggedIn && !isProfileComplete && pathname !== '/complete-profile') {
         return NextResponse.redirect(new URL('/complete-profile', nextUrl));
     }
 
