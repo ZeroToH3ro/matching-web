@@ -9,7 +9,7 @@ export default function AuthStateSync() {
   const { setAuth, clearAuth } = useAuthStore()
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
+    if (status === 'authenticated' && session?.user?.id) {
       setAuth(session.user.id, session.user.profileComplete || false)
     } else if (status === 'unauthenticated') {
       clearAuth()
