@@ -17,10 +17,7 @@ export function RegisterEnokiWallets({ googleClientId, enokiApiKey,redirectUrl }
     const { unregister } = registerEnokiWallets({
       apiKey: enokiApiKey,
       providers: {
-        // Provide the client IDs for each of the auth providers you want to use:
         google: { clientId: googleClientId,redirectUrl: redirectUrl },
-        // facebook: { clientId: clientConfig.FACEBOOK_CLIENT_ID },
-        // twitch: { clientId: clientConfig.TWITCH_CLIENT_ID }
       },
       client,
       network,
