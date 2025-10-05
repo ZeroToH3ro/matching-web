@@ -512,6 +512,58 @@ module matching_me::core {
         match_obj
     }
 
+    /// Create match with only sender's profile (one-sided match request)
+    /// This is more practical as user can only modify their own profile
+    /// Returns the match_id for tracking
+    public fun create_match_request(
+        registry: &mut MatchRegistry,
+        my_profile: &mut UserProfile,
+        target_user: address,
+        compatibility_score: u64,
+        zk_proof_valid: bool,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): ID {
+        let sender = tx_context::sender(ctx);
+        assert!(my_profile.owner == sender, EInsufficientPermissions);
+        assert!(sender != target_user, ECannotMatchSelf);
+        assert!(zk_proof_valid, EInsufficientPermissions);
+
+        let current_time = clock::timestamp_ms(clock);
+        let match_uid = object::new(ctx);
+        let match_id = object::uid_to_inner(&match_uid);
+
+        let match_obj = Match {
+            id: match_uid,
+            user_a: sender,
+            user_b: target_user,
+            compatibility_score,
+            status: MATCH_STATUS_PENDING,
+            created_at: current_time,
+            last_interaction: current_time,
+            mutual_like: false,
+        };
+
+        // Only update sender's match count
+        my_profile.match_count = my_profile.match_count + 1;
+
+        // Add to registry
+        add_match_to_registry(registry, sender, target_user, match_id);
+
+        event::emit(MatchCreated {
+            match_id,
+            user_a: sender,
+            user_b: target_user,
+            compatibility_score,
+            timestamp: current_time,
+        });
+
+        // Transfer match object to sender
+        transfer::transfer(match_obj, sender);
+
+        match_id
+    }
+
     /// Update match status
     public fun update_match_status(
         match_obj: &mut Match,

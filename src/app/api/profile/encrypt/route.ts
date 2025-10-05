@@ -18,14 +18,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing owner address' }, { status: 400 });
     }
 
-    const result = await encryptProfilePayload({
-      payload: body.profile,
-      ownerAddress: body.ownerAddress,
-    });
+    // Check if SEAL is properly configured
+    const sealEnabled = process.env.SEAL_ENABLED === 'true';
+    const sealPackageId = process.env.SEAL_PACKAGE_ID;
+    const hasValidSealConfig = sealPackageId && sealPackageId !== 'your-seal-package-id';
 
-    return NextResponse.json(result, { status: 200 });
+    if (sealEnabled && hasValidSealConfig) {
+      // Use Seal Protocol encryption
+      const result = await encryptProfilePayload({
+        payload: body.profile,
+        ownerAddress: body.ownerAddress,
+      });
+      return NextResponse.json(result, { status: 200 });
+    } else {
+      // Fallback: Base64 encode without encryption (for development/testing)
+      console.warn('[profile-encrypt] SEAL not configured, using base64 encoding fallback');
+      const jsonString = JSON.stringify(body.profile);
+      const base64 = Buffer.from(jsonString).toString('base64');
+
+      return NextResponse.json({
+        ciphertext: base64,
+        policyId: 'mock-policy-id',
+        keyId: 'mock-key-id',
+      }, { status: 200 });
+    }
   } catch (error) {
     console.error('[profile-encrypt] Failed to encrypt profile payload', error);
-    return NextResponse.json({ error: 'Failed to encrypt profile data' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Failed to encrypt profile data',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

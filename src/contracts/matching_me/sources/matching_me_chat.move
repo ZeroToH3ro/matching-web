@@ -926,6 +926,45 @@ module matching_me::chat {
         chat.status = CHAT_STATUS_DELETED;
     }
 
+    /// Transfer chat room to recipient (for use in other modules)
+    public(package) fun transfer_chat_room(chat: ChatRoom, recipient: address) {
+        transfer::transfer(chat, recipient);
+    }
+
+    /// Share chat room so both participants can access it (for use in other modules)
+    public(package) fun share_chat_room(chat: ChatRoom) {
+        transfer::share_object(chat);
+    }
+
+    /// Entry function wrapper for send_message (basic text message)
+    public entry fun send_message_entry(
+        registry: &mut ChatRegistry,
+        index: &mut MessageIndex,
+        chat: &mut ChatRoom,
+        encrypted_content: vector<u8>,
+        content_hash: vector<u8>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let message = send_message(
+            registry,
+            index,
+            chat,
+            0, // content_type: 0 = text
+            encrypted_content,
+            content_hash,
+            option::none<String>(), // media_blob_id
+            option::none<String>(), // thumbnail_blob_id
+            option::none<ID>(), // reply_to
+            option::none<u64>(), // expires_at
+            clock,
+            ctx
+        );
+
+        let sender = tx_context::sender(ctx);
+        transfer::transfer(message, sender);
+    }
+
     /// Initialize module
     fun init(ctx: &mut TxContext) {
         transfer::transfer(
@@ -949,5 +988,13 @@ module matching_me::chat {
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
+    }
+
+    /// Create MessageIndex for testing/recovery
+    public entry fun create_message_index(ctx: &mut TxContext) {
+        transfer::share_object(MessageIndex {
+            id: object::new(ctx),
+            chat_messages: table::new(ctx),
+        });
     }
 }

@@ -23,19 +23,25 @@ export const matchingMeContractConfig: MatchingMeContractConfig = {
 };
 
 export function assertMatchingMeConfig(): void {
-  const missing: string[] = [];
+  // Temporarily disabled for development - using fallback values
+  // TODO: Re-enable validation in production
 
   if (!matchingMeContractConfig.packageId) {
-    missing.push('NEXT_PUBLIC_MATCHING_ME_PACKAGE_ID');
+    console.warn('Missing NEXT_PUBLIC_MATCHING_ME_PACKAGE_ID - smart contract features disabled');
   }
 
   if (!matchingMeContractConfig.profileRegistryId) {
-    missing.push('NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID');
+    console.warn('Missing NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID - smart contract features disabled');
   }
 
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required MatchingMe contract environment variables: ${missing.join(', ')}`,
-    );
-  }
+  // Disabled: Allow app to run without contract config
+  // if (missing.length > 0) {
+  //   throw new Error(
+  //     `Missing required MatchingMe contract environment variables: ${missing.join(', ')}`,
+  //   );
+  // }
+}
+
+export function isContractConfigured(): boolean {
+  return !!(matchingMeContractConfig.packageId && matchingMeContractConfig.profileRegistryId);
 }

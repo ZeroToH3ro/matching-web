@@ -12,12 +12,14 @@ module matching_me::integration {
     use matching_me::core::{
         UserProfile, Match, Subscription, MediaContent, DigitalGift,
         get_profile_owner, get_match_users, is_subscription_active,
-        get_subscription_tier, get_match_id, get_gift_id, get_media_id
+        get_subscription_tier, get_match_id, get_gift_id, get_media_id,
+        get_match_status, is_match_active
     };
     use matching_me::chat::{
         ChatRoom, Message, ChatRegistry, MessageIndex,
         create_chat, send_message, get_chat_participants, get_chat_id, get_message_id
     };
+    use matching_me::seal_policies::{AllowlistRegistry, ChatAllowlist, create_chat_allowlist, get_chat_allowlist_id};
 
     // ===== Error Codes =====
 
@@ -26,6 +28,8 @@ module matching_me::integration {
     const ESubscriptionTierTooLow: u64 = 3;
     const EMaxChatsReached: u64 = 4;
     const EMessageLimitReached: u64 = 5;
+    const EChatAlreadyExists: u64 = 6;
+    const EInactiveMatch: u64 = 7;
 
     // ===== Constants =====
 
@@ -51,13 +55,13 @@ module matching_me::integration {
     /// Usage tracking for rate limiting
     public struct UsageTracker has key {
         id: UID,
-        user_usage: Table<address, DailyUsage>,
+        user_daily_usage: Table<address, DailyUsage>,
+        user_active_chats: Table<address, u64>,  // Total active chats (not reset daily)
     }
 
     public struct DailyUsage has store {
         date: u64,  // Day timestamp (midnight UTC)
         messages_sent: u64,
-        active_chats: u64,
     }
 
     /// Integration metadata linking Match with Chat
@@ -66,6 +70,13 @@ module matching_me::integration {
         match_id: ID,
         chat_id: ID,
         created_at: u64,
+    }
+
+    /// Global registry for Match-Chat Links
+    public struct MatchChatRegistry has key {
+        id: UID,
+        match_to_chat: Table<ID, ID>,  // match_id -> chat_id
+        chat_to_match: Table<ID, ID>,  // chat_id -> match_id
     }
 
     /// Gift Message - special message type with embedded gift
@@ -141,6 +152,14 @@ module matching_me::integration {
         timestamp: u64,
     }
 
+    public struct ChatAllowlistAutoCreated has copy, drop {
+        chat_id: ID,
+        allowlist_id: ID,
+        participant_a: address,
+        participant_b: address,
+        timestamp: u64,
+    }
+
     // ===== Helper Functions =====
 
     /// Get current day timestamp (midnight UTC)
@@ -156,17 +175,16 @@ module matching_me::integration {
         ctx: &mut TxContext
     ): &mut DailyUsage {
         let day = get_day_timestamp(current_time);
-        
-        if (!table::contains(&tracker.user_usage, user)) {
-            table::add(&mut tracker.user_usage, user, DailyUsage {
+
+        if (!table::contains(&tracker.user_daily_usage, user)) {
+            table::add(&mut tracker.user_daily_usage, user, DailyUsage {
                 date: day,
                 messages_sent: 0,
-                active_chats: 0,
             });
         };
 
-        let usage = table::borrow_mut(&mut tracker.user_usage, user);
-        
+        let usage = table::borrow_mut(&mut tracker.user_daily_usage, user);
+
         // Reset if new day
         if (usage.date != day) {
             usage.date = day;
@@ -174,6 +192,35 @@ module matching_me::integration {
         };
 
         usage
+    }
+
+    /// Get active chat count
+    fun get_active_chat_count(tracker: &UsageTracker, user: address): u64 {
+        if (table::contains(&tracker.user_active_chats, user)) {
+            *table::borrow(&tracker.user_active_chats, user)
+        } else {
+            0
+        }
+    }
+
+    /// Increment active chat count
+    fun increment_active_chats(tracker: &mut UsageTracker, user: address) {
+        if (!table::contains(&tracker.user_active_chats, user)) {
+            table::add(&mut tracker.user_active_chats, user, 1);
+        } else {
+            let count = table::borrow_mut(&mut tracker.user_active_chats, user);
+            *count = *count + 1;
+        };
+    }
+
+    /// Decrement active chat count
+    fun decrement_active_chats(tracker: &mut UsageTracker, user: address) {
+        if (table::contains(&tracker.user_active_chats, user)) {
+            let count = table::borrow_mut(&mut tracker.user_active_chats, user);
+            if (*count > 0) {
+                *count = *count - 1;
+            };
+        };
     }
 
     /// Check if user can send message based on tier
@@ -208,10 +255,12 @@ module matching_me::integration {
 
     /// Check if user can create new chat
     fun can_create_chat(
-        usage: &DailyUsage,
+        tracker: &UsageTracker,
+        user: address,
         subscription_ref: &Option<Subscription>,
         current_time: u64
     ): bool {
+        let active_chats = get_active_chat_count(tracker, user);
         let tier = if (option::is_some(subscription_ref)) {
             let sub = option::borrow(subscription_ref);
             if (is_subscription_active(sub, current_time)) {
@@ -233,15 +282,17 @@ module matching_me::integration {
             FREE_MAX_ACTIVE_CHATS
         };
 
-        usage.active_chats < limit
+        active_chats < limit
     }
 
     // ===== Public Functions =====
 
-    /// Create chat from match with subscription check
+    /// Create chat from match with subscription check and auto-create ChatAllowlist
     public fun create_chat_from_match(
         tracker: &mut UsageTracker,
+        match_chat_registry: &mut MatchChatRegistry,
         chat_registry: &mut ChatRegistry,
+        allowlist_registry: &mut AllowlistRegistry,
         profile: &UserProfile,
         match_obj: &Match,
         subscription: &Option<Subscription>,
@@ -255,18 +306,22 @@ module matching_me::integration {
 
         assert!(get_profile_owner(profile) == sender, ENotMatched);
 
+        // Verify match is active
+        assert!(is_match_active(match_obj), EInactiveMatch);
+
         // Verify match participants
         let (user_a, user_b) = get_match_users(match_obj);
         assert!(user_a == sender || user_b == sender, ENotMatched);
 
+        let match_id = get_match_id(match_obj);
+
+        // Check if chat already exists for this match
+        assert!(!table::contains(&match_chat_registry.match_to_chat, match_id), EChatAlreadyExists);
+
         let other_user = if (user_a == sender) { user_b } else { user_a };
 
-        // Check subscription limits and update usage separately
-        let match_id = get_match_id(match_obj);
-        {
-            let usage = get_or_create_usage(tracker, sender, current_time, ctx);
-            assert!(can_create_chat(usage, subscription, current_time), EMaxChatsReached);
-        };
+        // Check subscription limits
+        assert!(can_create_chat(tracker, sender, subscription, current_time), EMaxChatsReached);
 
         // Create chat
         let chat = create_chat(
@@ -280,19 +335,38 @@ module matching_me::integration {
             ctx
         );
 
-        // Update usage after chat creation
-        let usage = get_or_create_usage(tracker, sender, current_time, ctx);
-        usage.active_chats = usage.active_chats + 1;
-
-        // Create link
-        let link_uid = object::new(ctx);
         let chat_id = get_chat_id(&chat);
+
+        // Increment active chats for both participants
+        increment_active_chats(tracker, sender);
+        increment_active_chats(tracker, other_user);
+
+        // Create link and add to registry
+        let link_uid = object::new(ctx);
         let link = MatchChatLink {
             id: link_uid,
             match_id,
             chat_id,
             created_at: current_time,
         };
+
+        // Add to registry
+        table::add(&mut match_chat_registry.match_to_chat, match_id, chat_id);
+        table::add(&mut match_chat_registry.chat_to_match, chat_id, match_id);
+
+        // Auto-create shared ChatAllowlist for both participants
+        let allowlist = create_chat_allowlist(
+            allowlist_registry,
+            &chat,
+            profile,
+            option::none<u64>(), // No expiry
+            clock,
+            ctx
+        );
+        let allowlist_id = get_chat_allowlist_id(&allowlist);
+
+        // Share the allowlist so both participants can access it
+        transfer::public_share_object(allowlist);
 
         event::emit(ChatCreatedFromMatch {
             match_id,
@@ -302,6 +376,81 @@ module matching_me::integration {
             timestamp: current_time,
         });
 
+        // Emit event for allowlist creation
+        event::emit(ChatAllowlistAutoCreated {
+            chat_id,
+            allowlist_id,
+            participant_a: user_a,
+            participant_b: user_b,
+            timestamp: current_time,
+        });
+
+        (chat, link)
+    }
+
+    /// Entry function wrapper for create_chat_from_match (without subscription)
+    /// Creates an Option<Subscription> inline and passes by reference
+    public entry fun create_chat_from_match_entry(
+        tracker: &mut UsageTracker,
+        match_chat_registry: &mut MatchChatRegistry,
+        chat_registry: &mut ChatRegistry,
+        allowlist_registry: &mut AllowlistRegistry,
+        profile: &UserProfile,
+        match_obj: &Match,
+        seal_policy_id: String,
+        encrypted_key: vector<u8>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        use matching_me::chat;
+
+        let (chat, link) = create_chat_from_match_no_subscription(
+            tracker,
+            match_chat_registry,
+            chat_registry,
+            allowlist_registry,
+            profile,
+            match_obj,
+            seal_policy_id,
+            encrypted_key,
+            clock,
+            ctx
+        );
+
+        let sender = tx_context::sender(ctx);
+        // Share ChatRoom so both participants can send messages
+        chat::share_chat_room(chat);
+        transfer::transfer(link, sender);
+    }
+
+    /// Helper function that creates chat without requiring subscription parameter
+    fun create_chat_from_match_no_subscription(
+        tracker: &mut UsageTracker,
+        match_chat_registry: &mut MatchChatRegistry,
+        chat_registry: &mut ChatRegistry,
+        allowlist_registry: &mut AllowlistRegistry,
+        profile: &UserProfile,
+        match_obj: &Match,
+        seal_policy_id: String,
+        encrypted_key: vector<u8>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): (ChatRoom, MatchChatLink) {
+        let none_sub = option::none<Subscription>();
+        let (chat, link) = create_chat_from_match(
+            tracker,
+            match_chat_registry,
+            chat_registry,
+            allowlist_registry,
+            profile,
+            match_obj,
+            &none_sub,
+            seal_policy_id,
+            encrypted_key,
+            clock,
+            ctx
+        );
+        option::destroy_none(none_sub);
         (chat, link)
     }
 
@@ -599,14 +748,63 @@ module matching_me::integration {
 
     // ===== View Functions =====
 
+    /// Check if chat exists for match
+    public fun chat_exists_for_match(
+        registry: &MatchChatRegistry,
+        match_id: ID
+    ): bool {
+        table::contains(&registry.match_to_chat, match_id)
+    }
+
+    /// Get chat ID from match ID
+    public fun get_chat_id_by_match(
+        registry: &MatchChatRegistry,
+        match_id: ID
+    ): Option<ID> {
+        if (table::contains(&registry.match_to_chat, match_id)) {
+            option::some(*table::borrow(&registry.match_to_chat, match_id))
+        } else {
+            option::none()
+        }
+    }
+
+    /// Get match ID from chat ID
+    public fun get_match_id_by_chat(
+        registry: &MatchChatRegistry,
+        chat_id: ID
+    ): Option<ID> {
+        if (table::contains(&registry.chat_to_match, chat_id)) {
+            option::some(*table::borrow(&registry.chat_to_match, chat_id))
+        } else {
+            option::none()
+        }
+    }
+
+    /// Close chat and decrement active chat count
+    public fun close_chat(
+        tracker: &mut UsageTracker,
+        chat: &ChatRoom,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        let (user_a, user_b) = get_chat_participants(chat);
+
+        // Only allow participants to close
+        assert!(sender == user_a || sender == user_b, ENotMatched);
+
+        // Decrement for both participants
+        decrement_active_chats(tracker, user_a);
+        decrement_active_chats(tracker, user_b);
+    }
+
     public fun get_user_daily_messages_sent(
         tracker: &UsageTracker,
         user: address,
         current_time: u64
     ): u64 {
         let day = get_day_timestamp(current_time);
-        if (table::contains(&tracker.user_usage, user)) {
-            let usage = table::borrow(&tracker.user_usage, user);
+        if (table::contains(&tracker.user_daily_usage, user)) {
+            let usage = table::borrow(&tracker.user_daily_usage, user);
             if (usage.date == day) {
                 return usage.messages_sent
             };
@@ -618,12 +816,7 @@ module matching_me::integration {
         tracker: &UsageTracker,
         user: address
     ): u64 {
-        if (table::contains(&tracker.user_usage, user)) {
-            let usage = table::borrow(&tracker.user_usage, user);
-            usage.active_chats
-        } else {
-            0
-        }
+        get_active_chat_count(tracker, user)
     }
 
     public fun get_remaining_messages(
@@ -632,8 +825,8 @@ module matching_me::integration {
         subscription: &Option<Subscription>,
         current_time: u64
     ): u64 {
-        let usage = if (table::contains(&tracker.user_usage, user)) {
-            table::borrow(&tracker.user_usage, user)
+        let usage = if (table::contains(&tracker.user_daily_usage, user)) {
+            table::borrow(&tracker.user_daily_usage, user)
         } else {
             // Return default for new users
             let tier = if (option::is_some(subscription)) {
@@ -713,12 +906,28 @@ module matching_me::integration {
     fun init(ctx: &mut TxContext) {
         transfer::share_object(UsageTracker {
             id: object::new(ctx),
-            user_usage: table::new(ctx),
+            user_daily_usage: table::new(ctx),
+            user_active_chats: table::new(ctx),
+        });
+
+        transfer::share_object(MatchChatRegistry {
+            id: object::new(ctx),
+            match_to_chat: table::new(ctx),
+            chat_to_match: table::new(ctx),
         });
     }
 
     #[test_only]
     public fun init_for_testing(ctx: &mut TxContext) {
         init(ctx);
+    }
+
+    /// Create UsageTracker for testing/recovery
+    public entry fun create_usage_tracker(ctx: &mut TxContext) {
+        transfer::share_object(UsageTracker {
+            id: object::new(ctx),
+            user_daily_usage: table::new(ctx),
+            user_active_chats: table::new(ctx),
+        });
     }
 }

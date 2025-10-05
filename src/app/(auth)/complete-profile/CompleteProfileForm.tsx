@@ -19,8 +19,10 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClientContext } from "@mysten/dapp-kit";
 import { buildCreateProfileTransaction, fetchProfileRegistryReference } from "@/lib/contracts/matchingMe";
 import { markProfileCompleteOnChain } from "@/app/actions/profileOnChainActions";
+import { completeSocialLoginProfile } from "@/app/actions/authActions";
 import { calculateAge } from "@/lib/util";
 import type { SuiTransactionBlockResponse } from "@mysten/sui/client";
+import { isContractConfigured } from "@/configs/matchingMeContract";
 
 interface EncryptionResponse {
   ciphertext: string;
@@ -62,7 +64,10 @@ export default function CompleteProfileForm() {
     try {
       clearErrors("root");
 
-      if (!account?.address) {
+      // Check if smart contract is configured
+      const contractEnabled = isContractConfigured();
+
+      if (contractEnabled && !account?.address) {
         setError("root.serverError", {
           message: "Connect your Sui wallet before completing your profile.",
         });
@@ -73,9 +78,37 @@ export default function CompleteProfileForm() {
 
       if (age < 18) {
         setError("root.serverError", {
-          message: "You must be at least 18 years old to create an on-chain profile.",
+          message: "You must be at least 18 years old to create a profile.",
         });
         return;
+      }
+
+      // If contract is not configured, skip on-chain profile creation
+      if (!contractEnabled) {
+        console.warn('Smart contract not configured - skipping on-chain profile creation');
+
+        // Complete profile using server action (saves to database)
+        const result = await completeSocialLoginProfile(data);
+
+        if (result.status !== 'success') {
+          throw new Error(result.error || 'Failed to complete profile');
+        }
+
+        // Update session
+        const updatedSession = await update({ profileComplete: true });
+
+        if (updatedSession?.user?.id) {
+          setAuth(updatedSession.user.id, true);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+        window.location.href = "/members";
+        return;
+      }
+
+      // Continue with on-chain profile creation
+      if (!account?.address) {
+        throw new Error('Wallet not connected');
       }
 
       const encryptionResponse = await fetch("/api/profile/encrypt", {
