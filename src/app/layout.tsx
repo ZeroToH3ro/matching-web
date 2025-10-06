@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import '@mysten/dapp-kit/dist/index.css'
 import Providers from '@/components/Providers'
-import TopNav from '@/components/navbar/TopNavGlass'
+import TopNavGlassWrapper from '@/components/navbar/TopNavGlassWrapper'
 import { auth } from '@/auth'
 
 export const metadata: Metadata = {
@@ -36,7 +36,7 @@ export default async function RootLayout({
           profileComplete={profileComplete}
           userId={userId}
         >
-          <TopNav />
+          <TopNavGlassWrapper />
           <main className="container mx-auto pt-6">{children}</main>
         </Providers>
       </body>

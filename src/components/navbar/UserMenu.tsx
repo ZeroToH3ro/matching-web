@@ -1,17 +1,20 @@
 "use client";
 
 import { signOutUser } from "@/app/actions/authActions";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Avatar,
-  Dropdown,
-  DropdownItem,
   DropdownMenu,
-  DropdownSection,
-  DropdownTrigger,
-} from "@nextui-org/react";
-import { useDisconnectWallet } from "@mysten/dapp-kit";
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useDisconnectWallet, useCurrentAccount } from "@mysten/dapp-kit";
 import Link from "next/link";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { User, Edit, LogOut, Wallet, Copy, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   userInfo: {
@@ -20,10 +23,16 @@ type Props = {
   } | null;
 };
 
-export default function UserMenu({
-  userInfo,
-}: Props) {
+export default function UserMenu({ userInfo }: Props) {
   const { mutate: disconnectWallet } = useDisconnectWallet();
+  const currentAccount = useCurrentAccount();
+  const [copied, setCopied] = useState(false);
+
+  // Debug log
+  useEffect(() => {
+    console.log('UserMenu - currentAccount:', currentAccount);
+    console.log('UserMenu - wallet address:', currentAccount?.address);
+  }, [currentAccount]);
 
   const handleLogout = async () => {
     try {
@@ -44,52 +53,91 @@ export default function UserMenu({
     return name.substring(0, 2).toUpperCase();
   };
 
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleCopyAddress = async () => {
+    if (currentAccount?.address) {
+      await navigator.clipboard.writeText(currentAccount.address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
-    <Dropdown placement="bottom-end">
-      <DropdownTrigger>
-        <Avatar
-          isBordered
-          as="button"
-          className="transition-transform"
-          color="secondary"
-          name={getInitials(userInfo?.name || null)}
-          size="sm"
-          showFallback
-        />
-      </DropdownTrigger>
-      <DropdownMenu
-        variant="flat"
-        aria-label="User actions menu"
-        className="bg-white"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "relative rounded-full ring-2 ring-white/50 ring-offset-2 ring-offset-transparent",
+            "hover:ring-white/80 transition-all duration-300 hover:scale-105",
+            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          )}
+        >
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={userInfo?.image || undefined} alt={userInfo?.name || "User"} />
+            <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-semibold">
+              {getInitials(userInfo?.name || null)}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-56 shadow-xl border-border/50 backdrop-blur-sm"
       >
-        <DropdownSection showDivider>
-          <DropdownItem
-            isReadOnly
-            as="span"
-            className="h-14 flex flex-row bg-white"
-            aria-label="username"
-            key="username_display"
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{userInfo?.name}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                My Account
+              </p>
+            </div>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {currentAccount?.address && (
+          <>
+            <DropdownMenuItem
+              onClick={handleCopyAddress}
+              className="cursor-pointer group"
+            >
+              <Wallet className="h-4 w-4 mr-2 text-muted-foreground" />
+              <div className="flex items-center justify-between flex-1 gap-2">
+                <span className="text-xs font-mono text-muted-foreground">
+                  {formatAddress(currentAccount.address)}
+                </span>
+                {copied ? (
+                  <Check className="h-3 w-3 text-green-500" />
+                ) : (
+                  <Copy className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                )}
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link
+            href="/members/edit"
+            className="flex items-center gap-2 transition-colors duration-200"
           >
-            {userInfo?.name}
-          </DropdownItem>
-        </DropdownSection>
-        <DropdownItem
-          as={Link}
-          href="/members/edit"
-          key="edit_profile"
-          className="bg-white hover:bg-gray-100"
-        >
-          Edit profile
-        </DropdownItem>
-        <DropdownItem
-          color="danger"
+            <Edit className="h-4 w-4" />
+            <span>Edit profile</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
           onClick={handleLogout}
-          key="logout"
-          className="bg-white hover:bg-red-50"
+          className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 transition-colors duration-200"
         >
-          Log out
-        </DropdownItem>
-      </DropdownMenu>
-    </Dropdown>
+          <LogOut className="h-4 w-4 mr-2" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

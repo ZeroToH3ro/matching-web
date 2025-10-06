@@ -7,6 +7,7 @@ export interface MarkProfileCompleteInput {
   profileObjectId: string
   sealPolicyId?: string
   sealKeyId?: string
+  walletAddress?: string
 }
 
 export type MarkProfileCompleteResult =
@@ -30,6 +31,8 @@ export async function markProfileCompleteOnChain(
     where: { id: session.user.id },
     data: {
       profileComplete: true,
+      profileObjectId: params.profileObjectId,
+      walletAddress: params.walletAddress,
     },
   })
 

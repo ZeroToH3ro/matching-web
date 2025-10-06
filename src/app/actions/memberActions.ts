@@ -6,6 +6,13 @@ import { addYears } from 'date-fns';
 import { getAuthUserId } from './authActions';
 import type { GetMemberParams, PaginatedResponse } from '@/types';
 
+export type MemberWithUser = Member & {
+    user: {
+        profileObjectId: string | null;
+        walletAddress: string | null;
+    };
+};
+
 function getAgeRange(ageRange: string): Date[] {
     const [minAge, maxAge] = ageRange.split(',');
     const currentDate = new Date();
@@ -22,7 +29,7 @@ export async function getMembers({
     pageNumber = '1',
     pageSize = '12',
     withPhoto = 'true'
-}: GetMemberParams): Promise<PaginatedResponse<Member>> {
+}: GetMemberParams): Promise<PaginatedResponse<MemberWithUser>> {
     const userId = await getAuthUserId();
 
     const [minDob, maxDob] = getAgeRange(ageRange);
@@ -55,7 +62,15 @@ export async function getMembers({
             ...membersSelect,
             orderBy: { [orderBy]: 'desc' },
             skip,
-            take: limit
+            take: limit,
+            include: {
+                user: {
+                    select: {
+                        profileObjectId: true,
+                        walletAddress: true,
+                    }
+                }
+            }
         });
 
         return {
