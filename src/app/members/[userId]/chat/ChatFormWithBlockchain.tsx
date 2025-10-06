@@ -15,8 +15,10 @@ import { HiPaperAirplane } from "react-icons/hi2";
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { SealClient, SessionKey } from "@mysten/seal";
+import { fromHex, toHex } from "@mysten/sui/utils";
 import { toast } from "react-toastify";
 import { Loader2 } from "lucide-react";
+import { CONTRACT_IDS } from "@/lib/blockchain/contractQueries";
 
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID!;
 
@@ -47,7 +49,7 @@ export default function ChatFormWithBlockchain({ chatRoomId, chatAllowlistId }: 
 
   const hasOnChainChat = !!(chatRoomId && chatAllowlistId && account?.address);
 
-  // Send message on-chain
+  // Send message on-chain with proper Seal encryption
   const sendOnChainMessage = async (messageText: string) => {
     if (!chatRoomId || !chatAllowlistId || !account?.address) {
       throw new Error("On-chain chat not available");
@@ -57,7 +59,6 @@ export default function ChatFormWithBlockchain({ chatRoomId, chatAllowlistId }: 
 
     try {
       // 1. Create session key for Seal encryption
-      console.log("[ChatForm] Creating session key...");
       const sessionKey = await SessionKey.create({
         address: account.address,
         packageId: PACKAGE_ID,
@@ -83,45 +84,81 @@ export default function ChatFormWithBlockchain({ chatRoomId, chatAllowlistId }: 
         );
       });
 
-      console.log("[ChatForm] Session key signed");
+      // 2. Encrypt message with proper namespace
+      // Seal Protocol server object IDs (must match test-contract page)
+      const SERVER_OBJECT_IDS = [
+        "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+        "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+      ];
 
-      // 2. Encrypt message content with Seal
       const sealClient = new SealClient({
-        network: "testnet",
+        suiClient: client,
+        serverConfigs: SERVER_OBJECT_IDS.map((id) => ({
+          objectId: id,
+          weight: 1,
+        })),
+        verifyKeyServers: false,
+      });
+
+      const contentBytes = new TextEncoder().encode(messageText);
+
+      // Generate nonce for unique encryption ID
+      const nonce = crypto.getRandomValues(new Uint8Array(5));
+
+      // Build proper namespace: TYPE_CHAT (1 byte) + ChatAllowlist ID (32 bytes)
+      const TYPE_CHAT = 1;
+      const allowlistIdBytes = fromHex(chatAllowlistId.startsWith("0x")
+        ? chatAllowlistId.slice(2)
+        : chatAllowlistId);
+
+      // Namespace = TYPE_CHAT + ChatAllowlist ID
+      const namespace = new Uint8Array([TYPE_CHAT, ...allowlistIdBytes]);
+
+      // Full encryption ID = namespace + nonce
+      const encryptionId = toHex(new Uint8Array([...namespace, ...nonce]));
+
+      const { encryptedObject: encryptedBytes } = await sealClient.encrypt({
+        threshold: 2,
         packageId: PACKAGE_ID,
+        id: encryptionId,
+        data: contentBytes,
       });
 
-      const messageBytes = new TextEncoder().encode(messageText);
-      const encrypted = await sealClient.encrypt({
-        data: messageBytes,
-        sessionKey,
+      // 3. Get chat room object to find registry IDs
+      const chatRoomObj = await client.getObject({
+        id: chatRoomId,
+        options: { showContent: true },
       });
 
-      console.log("[ChatForm] Message encrypted");
+      if (!chatRoomObj.data?.content || chatRoomObj.data.content.dataType !== "moveObject") {
+        throw new Error("Invalid chat room object");
+      }
 
-      // 3. Build transaction to send message on-chain
+      // 4. Build and execute transaction
       const tx = new Transaction();
       tx.moveCall({
-        target: `${PACKAGE_ID}::chat::send_message`,
+        target: `${PACKAGE_ID}::chat::send_message_entry`,
         arguments: [
+          tx.object(CONTRACT_IDS.CHAT_REGISTRY_ID),
+          tx.object(CONTRACT_IDS.MESSAGE_INDEX_ID),
           tx.object(chatRoomId),
-          tx.pure.vector("u8", Array.from(encrypted)),
+          tx.pure.vector("u8", Array.from(encryptedBytes)),
+          tx.pure.vector("u8", [0]), // content_hash (empty for now)
           tx.object("0x6"), // Clock
         ],
       });
 
-      // 4. Execute transaction
+      // Execute transaction
       return new Promise<void>((resolve, reject) => {
         signAndExecuteTransaction(
           { transaction: tx },
           {
-            onSuccess: async (result) => {
-              console.log("[ChatForm] Message sent on-chain:", result.digest);
-              toast.success("Message sent on blockchain!");
+            onSuccess: async () => {
+              toast.success("Encrypted message sent on blockchain! 🔒");
               resolve();
             },
             onError: (error) => {
-              console.error("[ChatForm] Failed to send on-chain message:", error);
+              console.error("[ChatForm] Transaction error:", error);
               toast.error("Failed to send encrypted message");
               reject(error);
             },
@@ -129,7 +166,7 @@ export default function ChatFormWithBlockchain({ chatRoomId, chatAllowlistId }: 
         );
       });
     } catch (error: any) {
-      console.error("[ChatForm] Error sending on-chain message:", error);
+      console.error("[ChatForm] Error during send:", error);
       toast.error(error.message || "Failed to send message");
       throw error;
     } finally {

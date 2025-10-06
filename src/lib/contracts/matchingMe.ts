@@ -74,6 +74,61 @@ export async function fetchProfileRegistryReference(
   };
 }
 
+/**
+ * Check if a profile exists on-chain for a given wallet address
+ * Queries the ProfileRegistry's dynamic field table
+ */
+export async function checkProfileExists(
+  client: SuiClient,
+  walletAddress: string,
+): Promise<{ exists: boolean; profileId?: string }> {
+  try {
+    assertMatchingMeConfig();
+
+    const profileRegistryId = matchingMeContractConfig.profileRegistryId;
+
+    // Get ProfileRegistry object
+    const registry = await client.getObject({
+      id: profileRegistryId,
+      options: { showContent: true },
+    });
+
+    if (!registry.data?.content || !('fields' in registry.data.content)) {
+      throw new Error('Invalid profile registry structure');
+    }
+
+    const fields = registry.data.content.fields as any;
+    const profilesTableId = fields.profiles.fields.id.id;
+
+    // Query dynamic field for user's profile ID
+    try {
+      const dynamicField = await client.getDynamicFieldObject({
+        parentId: profilesTableId,
+        name: {
+          type: 'address',
+          value: walletAddress,
+        },
+      });
+
+      if (dynamicField.data?.content && 'fields' in dynamicField.data.content) {
+        const profileId = (dynamicField.data.content.fields as any).value;
+        return { exists: true, profileId };
+      }
+
+      return { exists: false };
+    } catch (err: any) {
+      // Profile doesn't exist if dynamic field not found
+      if (err.message?.includes('not found') || err.message?.includes('Could not find')) {
+        return { exists: false };
+      }
+      throw err;
+    }
+  } catch (error) {
+    console.error('[checkProfileExists] Error:', error);
+    throw error;
+  }
+}
+
 export function buildCreateProfileTransaction({
   ownerAddress,
   displayName,

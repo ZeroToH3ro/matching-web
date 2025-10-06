@@ -55,9 +55,19 @@ export function useOnChainChat({
   const getSealClient = useCallback(() => {
     if (!sealClientRef.current && isConfigured) {
       try {
+        // Seal Protocol server object IDs (must match test-contract page)
+        const SERVER_OBJECT_IDS = [
+          "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+          "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+        ];
+
         sealClientRef.current = new SealClient({
-          network: "testnet",
-          packageId: PACKAGE_ID,
+          suiClient: client,
+          serverConfigs: SERVER_OBJECT_IDS.map((id) => ({
+            objectId: id,
+            weight: 1,
+          })),
+          verifyKeyServers: false,
         });
       } catch (err) {
         console.error("[useOnChainChat] Failed to initialize SealClient:", err);
@@ -65,7 +75,7 @@ export function useOnChainChat({
       }
     }
     return sealClientRef.current;
-  }, [isConfigured]);
+  }, [isConfigured, client]);
 
   // Initialize session key
   const initializeSessionKey = useCallback(async (): Promise<SessionKey | null> => {
@@ -91,8 +101,6 @@ export function useOnChainChat({
     setIsInitializingSession(true);
 
     try {
-      console.log("[useOnChainChat] Creating session key...");
-
       const sessionKey = await SessionKey.create({
         address: account.address,
         packageId: PACKAGE_ID,
@@ -118,7 +126,6 @@ export function useOnChainChat({
         );
       });
 
-      console.log("[useOnChainChat] Session key created and signed");
       cachedSessionKeyRef.current = sessionKey;
       setIsInitializingSession(false);
       return sessionKey;
@@ -255,8 +262,6 @@ export function useOnChainChat({
 
       // Auto-decrypt all encrypted messages
       if (chatMessages.length > 0 && account) {
-        console.log(`[useOnChainChat] Auto-decrypting ${chatMessages.length} messages...`);
-
         // Initialize session key once
         const sessionKey = await initializeSessionKey();
         if (!sessionKey) {
@@ -291,12 +296,11 @@ export function useOnChainChat({
 
             if (obj?.data?.content && "fields" in obj.data.content) {
               const fields = obj.data.content.fields as any;
-              const encryptedContentHex = fields.encrypted_content;
+              const encryptedContentArray = fields.encrypted_content;
 
-              if (encryptedContentHex) {
-                const encryptedBytes = new Uint8Array(
-                  encryptedContentHex.match(/.{1,2}/g)?.map((byte: string) => parseInt(byte, 16)) || []
-                );
+              if (encryptedContentArray) {
+                // encrypted_content is already an array of bytes, just wrap it
+                const encryptedBytes = new Uint8Array(encryptedContentArray);
 
                 await autoDecryptMessage(msg.id, encryptedBytes, sessionKey);
               }
@@ -327,11 +331,6 @@ export function useOnChainChat({
 
     // Only enable if mounted and package is configured
     if (!isMounted || !isConfigured) {
-      if (!isMounted) {
-        console.log("[useOnChainChat] Waiting for mount...");
-      } else {
-        console.warn("[useOnChainChat] PACKAGE_ID not configured, on-chain chat disabled");
-      }
       return;
     }
 

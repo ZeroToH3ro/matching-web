@@ -28,6 +28,14 @@ export default function MemberCard({ member, likeIds, myProfileObjectId }: Props
   // Use blockchain-enabled button if both users have on-chain profiles
   const useBlockchainLike = !!(myProfileObjectId && member.user?.walletAddress);
 
+  console.log("[MemberCard] Render:", {
+    memberId: member.userId,
+    memberName: member.name,
+    useBlockchainLike,
+    myProfileObjectId,
+    memberWalletAddress: member.user?.walletAddress,
+  });
+
   const preventLinkAction = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();

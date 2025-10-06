@@ -2,6 +2,12 @@
 
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from './authActions';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import {
+  getMatchIdBetweenUsers,
+  getChatRoomIdByMatchId,
+  getChatAllowlistIdByChatRoomId
+} from '@/lib/blockchain/contractQueries';
 
 export interface CreateMatchOnChainInput {
   matchId: string;
@@ -161,17 +167,21 @@ export async function getUserProfileObjectId(
 
 /**
  * Get chat room details for a conversation between two users
+ * Queries the Sui blockchain ChatRegistry directly to find the chat room
+ * @param currentUserId - Current user's database ID
+ * @param targetWalletAddress - Target user's wallet address (from URL)
  */
 export async function getChatRoomByParticipants(
-  userId1: string,
-  userId2: string
+  currentUserId: string,
+  targetWalletAddress: string
 ): Promise<{ chatRoomId: string; chatAllowlistId: string } | null> {
   try {
-    const chatRoom = await prisma.chatRoom.findFirst({
+    // First, try to get from database cache
+    const cachedChatRoom = await prisma.chatRoom.findFirst({
       where: {
         OR: [
-          { participant1: userId1, participant2: userId2 },
-          { participant1: userId2, participant2: userId1 },
+          { participant1: currentUserId, participant2: targetWalletAddress },
+          { participant1: targetWalletAddress, participant2: currentUserId },
         ],
       },
       select: {
@@ -180,9 +190,54 @@ export async function getChatRoomByParticipants(
       },
     });
 
-    return chatRoom;
+    if (cachedChatRoom) {
+      return cachedChatRoom;
+    }
+
+    // Get current user's wallet address from database
+    const currentUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      select: { walletAddress: true },
+    });
+
+    const currentWalletAddress = currentUser?.walletAddress;
+    if (!currentWalletAddress) return null;
+
+    // Query blockchain using wallet addresses
+    const network = (process.env.NEXT_PUBLIC_SUI_NETWORK || 'testnet') as 'testnet' | 'mainnet';
+    const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
+
+    // Find match between users
+    const matchId = await getMatchIdBetweenUsers(suiClient, currentWalletAddress, targetWalletAddress);
+    if (!matchId) return null;
+
+    // Find chat room from match
+    const chatRoomId = await getChatRoomIdByMatchId(suiClient, matchId);
+    if (!chatRoomId) return null;
+
+    // Find chat allowlist
+    const chatAllowlistId = await getChatAllowlistIdByChatRoomId(suiClient, chatRoomId);
+    if (!chatAllowlistId) return null;
+
+    // Cache in database for future lookups
+    await prisma.chatRoom.upsert({
+      where: {
+        chatRoomId,
+      },
+      update: {
+        chatAllowlistId,
+      },
+      create: {
+        chatRoomId,
+        chatAllowlistId,
+        participant1: userId1,
+        participant2: userId2,
+      },
+    });
+
+    return { chatRoomId, chatAllowlistId };
   } catch (error) {
-    console.error('Error getting chat room:', error);
+    console.error('[getChatRoomByParticipants] Error:', error);
     return null;
   }
 }

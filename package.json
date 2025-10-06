@@ -15,7 +15,8 @@
     "contract:build": "cd src/contracts/matching_me && sui move build",
     "contract:test": "cd src/contracts/matching_me && sui move test",
     "contract:get-objects": "tsx scripts/get-shared-objects.ts",
-    "contract:test-flow": "bash scripts/test-contract-flow.sh"
+    "contract:test-flow": "bash scripts/test-contract-flow.sh",
+    "get-allowlist-from-chatroom": "tsx scripts/get-allowlist-from-chatroom.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",

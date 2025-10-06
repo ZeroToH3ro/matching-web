@@ -29,6 +29,7 @@ export default async function ChatPage({
   );
 
   // Check if on-chain chat room exists
+  // params.userId is the target user's wallet address
   const chatRoom = await getChatRoomByParticipants(userId, params.userId);
 
   return (

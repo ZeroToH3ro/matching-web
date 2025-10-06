@@ -16,6 +16,9 @@ import { CheckCircle2, XCircle, Loader2, ExternalLink } from "lucide-react";
 import { SealClient, SessionKey, EncryptedObject } from "@mysten/seal";
 import { fromHex, toHex } from "@mysten/sui/utils";
 import { useWalrusClient } from "@/hooks/useWalrusClient";
+import WalletProfileFinder from "@/components/blockchain/WalletProfileFinder";
+import DetailedChatDebugger from "@/components/blockchain/DetailedChatDebugger";
+import { getChatRoomIdByMatchId, getChatAllowlistIdByChatRoomId } from "@/lib/blockchain/contractQueries";
 
 const PACKAGE_ID = "0xd381f9c5fb2b26360501c058c1f66e3f61cac1ac3a71181c19d4074888476821";
 
@@ -333,44 +336,117 @@ export default function TestContractPage() {
     await executeTransaction(tx, "Activate Match");
   };
 
-  // 3. Create Chat from Match
+  // 3. Create Chat from Match (with error handling for existing chat)
   const createChatFromMatch = async () => {
-    const tx = new Transaction();
+    setLoading(true);
+    setError(null);
 
-    // Convert hex string to vector<u8>
-    const encryptedKeyBytes = chatData.encryptedKey.startsWith("0x")
-      ? Array.from(Buffer.from(chatData.encryptedKey.slice(2), "hex"))
-      : Array.from(Buffer.from(chatData.encryptedKey, "hex"));
+    try {
+      // Step 1: Check if chat already exists
+      console.log("🔍 Checking if chat already exists...");
 
-    // Use the entry function wrapper - auto-creates shared ChatAllowlist!
-    tx.moveCall({
-      target: `${PACKAGE_ID}::integration::create_chat_from_match_entry`,
-      arguments: [
-        tx.object(USAGE_TRACKER_ID),
-        tx.object(MATCH_CHAT_REGISTRY_ID),
-        tx.object(CHAT_REGISTRY_ID),
-        tx.object(ALLOWLIST_REGISTRY_ID), // Required for auto-creating ChatAllowlist
-        tx.object(chatData.myProfileId),
-        tx.object(chatData.matchId),
-        tx.pure.string(chatData.sealPolicyId),
-        tx.pure.vector("u8", Array.from(encryptedKeyBytes)),
-        tx.object("0x6"), // Clock
-      ],
-    });
+      const existingChatId = await getChatRoomIdByMatchId(client, chatData.matchId);
 
-    const result = await executeTransaction(tx, "Create Chat from Match");
+      if (existingChatId) {
+        console.log("✅ Chat already exists:", existingChatId);
 
-    // Extract ChatAllowlist ID from events
-    if (result?.events) {
-      const allowlistEvent = result.events.find((e: any) =>
-        e.type.includes("ChatAllowlistAutoCreated")
-      );
+        // Check for allowlist
+        const existingAllowlistId = await getChatAllowlistIdByChatRoomId(client, existingChatId);
 
-      if (allowlistEvent && allowlistEvent.parsedJson) {
-        const allowlistId = allowlistEvent.parsedJson.allowlist_id;
-        console.log("✅ ChatAllowlist ID:", allowlistId);
-        alert(`ChatAllowlist created!\n\nID: ${allowlistId}\n\nCopy this ID for sending messages.`);
+        if (existingAllowlistId) {
+          setResult({
+            description: "Chat Already Exists",
+            chatRoomId: existingChatId,
+            chatAllowlistId: existingAllowlistId,
+            note: "This match already has a chat room! You can use these IDs to send messages.",
+          });
+
+          alert(`Chat already exists!\n\nChat Room ID: ${existingChatId}\nChat Allowlist ID: ${existingAllowlistId}\n\nYou can start sending messages!`);
+        } else {
+          setResult({
+            description: "Chat Exists (Allowlist Missing)",
+            chatRoomId: existingChatId,
+            note: "Chat room exists but allowlist not found. Create allowlist in section 7.",
+          });
+
+          alert(`Chat exists but allowlist missing!\n\nChat Room ID: ${existingChatId}\n\nCreate allowlist in section 7 to send messages.`);
+        }
+
+        setLoading(false);
+        return;
       }
+
+      // Step 2: Chat doesn't exist, create it
+      console.log("📝 Creating new chat...");
+
+      const tx = new Transaction();
+
+      // Convert hex string to vector<u8>
+      const encryptedKeyBytes = chatData.encryptedKey.startsWith("0x")
+        ? Array.from(Buffer.from(chatData.encryptedKey.slice(2), "hex"))
+        : Array.from(Buffer.from(chatData.encryptedKey, "hex"));
+
+      // Use the entry function wrapper - auto-creates shared ChatAllowlist!
+      tx.moveCall({
+        target: `${PACKAGE_ID}::integration::create_chat_from_match_entry`,
+        arguments: [
+          tx.object(USAGE_TRACKER_ID),
+          tx.object(MATCH_CHAT_REGISTRY_ID),
+          tx.object(CHAT_REGISTRY_ID),
+          tx.object(ALLOWLIST_REGISTRY_ID),
+          tx.object(chatData.myProfileId),
+          tx.object(chatData.matchId),
+          tx.pure.string(chatData.sealPolicyId),
+          tx.pure.vector("u8", Array.from(encryptedKeyBytes)),
+          tx.object("0x6"), // Clock
+        ],
+      });
+
+      const result = await executeTransaction(tx, "Create Chat from Match");
+
+      // Extract ChatAllowlist ID from events
+      if (result?.events) {
+        const allowlistEvent = result.events.find((e: any) =>
+          e.type.includes("ChatAllowlistAutoCreated")
+        );
+
+        if (allowlistEvent && allowlistEvent.parsedJson) {
+          const allowlistId = allowlistEvent.parsedJson.allowlist_id;
+          console.log("✅ ChatAllowlist ID:", allowlistId);
+          alert(`ChatAllowlist created!\n\nID: ${allowlistId}\n\nCopy this ID for sending messages.`);
+        }
+      }
+    } catch (err: any) {
+      // Handle specific error: EChatAlreadyExists (error code 6)
+      if (err.message?.includes("MoveAbort") && err.message?.includes(", 6)")) {
+        console.log("⚠️ Chat already exists, fetching...");
+
+        try {
+          const existingChatId = await getChatRoomIdByMatchId(client, chatData.matchId);
+          const existingAllowlistId = existingChatId
+            ? await getChatAllowlistIdByChatRoomId(client, existingChatId)
+            : null;
+
+          setResult({
+            description: "Chat Already Exists (Error Caught)",
+            chatRoomId: existingChatId,
+            chatAllowlistId: existingAllowlistId,
+            note: "Chat already exists for this match. Using existing chat room.",
+          });
+
+          if (existingChatId && existingAllowlistId) {
+            alert(`Chat already exists!\n\nChat Room ID: ${existingChatId}\nChat Allowlist ID: ${existingAllowlistId}`);
+          } else if (existingChatId) {
+            alert(`Chat exists: ${existingChatId}\n\nBut allowlist not found. Create it in section 7.`);
+          }
+        } catch (fetchErr) {
+          setError("Chat exists but couldn't fetch details: " + (fetchErr as Error).message);
+        }
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1965,11 +2041,11 @@ export default function TestContractPage() {
             <CardDescription>Create an encrypted chat room from an active match</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert>
+            <Alert className="bg-blue-50 border-blue-200">
               <AlertDescription>
-                <strong>Important:</strong> If you get a TypeMismatch error, run{" "}
-                <code className="text-xs">npx tsx scripts/get-shared-objects.ts YOUR_DEPLOY_TX</code>{" "}
-                to get the correct MATCH_CHAT_REGISTRY_ID and update line 25.
+                <strong>✨ Smart Detection:</strong> This function now automatically checks if chat already exists!
+                <br/>If chat exists, it will return the existing chat room and allowlist IDs.
+                <br/>If error code 6 (EChatAlreadyExists) occurs, it will fetch existing IDs automatically.
               </AlertDescription>
             </Alert>
             <div className="space-y-2">
@@ -2902,6 +2978,38 @@ export default function TestContractPage() {
           <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
             ℹ️ Media with "Matches Only" visibility can only be viewed by users who have an active match with the owner.
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Detailed Chat Debugger - NEW! */}
+      <Card className="lg:col-span-2 border-2 border-red-500">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🐛 Detailed Debug (Use this if not finding chat/allowlist)
+            <Badge variant="destructive">Debug Tool</Badge>
+          </CardTitle>
+          <CardDescription>
+            Step-by-step debugging to find exactly where the problem is
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DetailedChatDebugger />
+        </CardContent>
+      </Card>
+
+      {/* Wallet Profile Finder - NEW! */}
+      <Card className="lg:col-span-2 border-2 border-primary">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🔍 Wallet Profile Finder
+            <Badge variant="default">New!</Badge>
+          </CardTitle>
+          <CardDescription>
+            Automatically find Profile ID, Match ID, Chat Room ID, and Allowlist ID from wallet addresses
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WalletProfileFinder />
         </CardContent>
       </Card>
 
