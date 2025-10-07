@@ -1,4 +1,3 @@
-/// Integration module connecting Chat with Core Matching.Me features
 module matching_me::integration {
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};

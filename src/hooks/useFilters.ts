@@ -60,9 +60,11 @@ export const useFilters = () => {
         setFilters('ageRange', value);
     }
 
-    const handleOrderSelect = (value: Selection) => {
+    const handleOrderSelect = (value: Selection | string) => {
         if (value instanceof Set) {
             setFilters('orderBy', value.values().next().value);
+        } else if (typeof value === 'string') {
+            setFilters('orderBy', value);
         }
     }
 

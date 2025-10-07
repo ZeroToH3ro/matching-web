@@ -1,6 +1,3 @@
-/// Seal Protocol Integration for Matching.Me
-/// Single seal_approve entry function with ID-based routing
-/// Identity format: [package_id]::[type_prefix][object_id][nonce]
 module matching_me::seal_policies {
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};

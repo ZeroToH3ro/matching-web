@@ -84,26 +84,13 @@ export default function CompleteProfileForm() {
       }
 
       // If contract is not configured, skip on-chain profile creation
-      if (!contractEnabled) {
-        console.warn('Smart contract not configured - skipping on-chain profile creation');
+      const result = await completeSocialLoginProfile(data);
 
-        // Complete profile using server action (saves to database)
-        const result = await completeSocialLoginProfile(data);
-
-        if (result.status !== 'success') {
-          throw new Error(result.error || 'Failed to complete profile');
-        }
-
-        // Update session
-        const updatedSession = await update({ profileComplete: true });
-
-        if (updatedSession?.user?.id) {
-          setAuth(updatedSession.user.id, true);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 300));
-        window.location.href = "/members";
-        return;
+      if (result.status !== 'success') {
+        const errorMessage = Array.isArray(result.error) 
+          ? result.error.map(e => e.message).join(', ') 
+          : result.error || 'Failed to complete profile';
+        throw new Error(errorMessage);
       }
 
       // Continue with on-chain profile creation
@@ -158,10 +145,10 @@ export default function CompleteProfileForm() {
         throw new Error(markResult.error);
       }
 
-      const updatedSession = await update({ profileComplete: true });
+      const onChainUpdatedSession = await update({ profileComplete: true });
 
-      if (updatedSession?.user?.id) {
-        setAuth(updatedSession.user.id, true);
+      if (onChainUpdatedSession?.user?.id) {
+        setAuth(onChainUpdatedSession.user.id, true);
       }
 
       await new Promise(resolve => setTimeout(resolve, 300));

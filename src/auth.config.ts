@@ -5,7 +5,6 @@ import { verifyPersonalMessageSignature } from '@mysten/sui/verify'
 import { Web3AuthMessage } from '@/lib/Web3AuthMessage'
 import Credentials from 'next-auth/providers/credentials'
 import { loginSchema } from './lib/schemas/LoginSchema'
-// import { getOrCreateUserByWalletAddress } from './app/actions/authActions'
 import type { User } from 'next-auth'
 import { PrismaClient } from '@prisma/client'
 

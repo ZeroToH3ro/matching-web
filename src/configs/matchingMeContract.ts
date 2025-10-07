@@ -8,7 +8,7 @@ export interface MatchingMeContractConfig {
 const DEFAULT_CLOCK_OBJECT_ID = '0x6';
 
 export const matchingMeContractConfig: MatchingMeContractConfig = {
-  packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || process.env.NEXT_PUBLIC_MATCHING_ME_PACKAGE_ID || '',
+  packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || '',
   moduleName: process.env.NEXT_PUBLIC_MATCHING_ME_MODULE_NAME || 'core',
   profileRegistryId: process.env.NEXT_PUBLIC_PROFILE_REGISTRY_ID || process.env.NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID || '',
   clockObjectId: process.env.NEXT_PUBLIC_SUI_CLOCK_OBJECT_ID || DEFAULT_CLOCK_OBJECT_ID,

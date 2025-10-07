@@ -1,8 +1,3 @@
-/**
- * Script to test seal_approve for a user
- * Run with: npx tsx scripts/test-seal-approve.ts <WALLET_ADDRESS> <CHAT_ALLOWLIST_ID> <ENCRYPTED_ID>
- */
-
 import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { fromHex } from "@mysten/sui/utils";

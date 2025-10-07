@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardBody, CardHeader, Chip, Code, Divider } from "@nextui-org/react";
-import { SuiObjectChange } from "@mysten/sui/client";
+import type { SuiObjectChange } from "@mysten/sui/client";
 
 interface ObjectChangesDisplayProps {
   objectChanges?: SuiObjectChange[];

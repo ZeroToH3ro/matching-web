@@ -282,7 +282,7 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
 
       // Step 7: Create blob URL for preview
       const contentType = photo.contentType === 0 ? 'image/jpeg' : 'video/mp4';
-      const blob = new Blob([decryptedBytes], { type: contentType });
+      const blob = new Blob([Uint8Array.from(decryptedBytes)], { type: contentType });
       const decryptedUrl = URL.createObjectURL(blob);
 
       // Update photo in state
