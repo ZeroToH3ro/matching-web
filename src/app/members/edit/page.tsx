@@ -32,33 +32,45 @@ export default async function MemberEditPage() {
 
   let hasOnChainProfile = false;
 
+  // For zkLogin users, userId IS the wallet address
+  const walletAddress = user?.walletAddress || userId;
+
   console.log("[EditPage] User data:", {
     userId,
-    walletAddress: user?.walletAddress,
+    walletAddress,
     profileObjectId: user?.profileObjectId,
   });
 
-  // If wallet connected, check on blockchain
-  if (user?.walletAddress) {
+  // Check on blockchain if we have a wallet address
+  if (walletAddress && walletAddress.startsWith("0x")) {
     try {
       const client = new SuiClient({ url: getFullnodeUrl("testnet") });
-      const result = await checkProfileExists(client, user.walletAddress);
+      const result = await checkProfileExists(client, walletAddress);
 
       hasOnChainProfile = result.exists;
 
       console.log("[EditPage] Blockchain check result:", {
-        walletAddress: user.walletAddress,
+        walletAddress,
         onChainExists: result.exists,
         onChainProfileId: result.profileId,
-        dbProfileId: user.profileObjectId,
+        dbProfileId: user?.profileObjectId,
       });
 
       // Sync database if needed
-      if (result.exists && result.profileId && user.profileObjectId !== result.profileId) {
+      if (result.exists && result.profileId && user?.profileObjectId !== result.profileId) {
         console.warn("[EditPage] Database profileObjectId mismatch, updating...");
         await prisma.user.update({
           where: { id: userId },
-          data: { profileObjectId: result.profileId },
+          data: {
+            profileObjectId: result.profileId,
+            walletAddress: walletAddress // Also save wallet address if missing
+          },
+        });
+      } else if (!user?.walletAddress && walletAddress) {
+        // Save wallet address to database if missing
+        await prisma.user.update({
+          where: { id: userId },
+          data: { walletAddress: walletAddress },
         });
       }
     } catch (error) {
@@ -75,7 +87,13 @@ export default async function MemberEditPage() {
   return (
     <CardInnerWrapper
       header="Edit Profile"
-      body={<EditForm member={member} hasOnChainProfile={hasOnChainProfile} />}
+      body={
+        <EditForm
+          member={member}
+          hasOnChainProfile={hasOnChainProfile}
+          walletAddress={walletAddress}
+        />
+      }
     />
   );
 }

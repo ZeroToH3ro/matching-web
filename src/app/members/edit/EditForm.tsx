@@ -12,21 +12,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { updateMemberProfile } from "@/app/actions/userActions";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { handleFormServerErrors } from "@/lib/util";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import OnChainProfileSection from "./OnChainProfileSection";
 
 type Props = {
   member: Member;
   hasOnChainProfile?: boolean;
+  walletAddress?: string;
 };
 
 export default function EditForm({
   member,
   hasOnChainProfile = false,
+  walletAddress,
 }: Props) {
   const router = useRouter();
   const {
@@ -77,7 +80,11 @@ export default function EditForm({
   return (
     <div className="flex flex-col gap-6">
       {/* On-Chain Profile Status */}
-      <OnChainProfileSection member={member} hasOnChainProfile={hasOnChainProfile} />
+      <OnChainProfileSection
+        member={member}
+        hasOnChainProfile={hasOnChainProfile}
+        walletAddress={walletAddress}
+      />
 
       {/* Profile Edit Form */}
       <form

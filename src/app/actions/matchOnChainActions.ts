@@ -230,8 +230,8 @@ export async function getChatRoomByParticipants(
       create: {
         chatRoomId,
         chatAllowlistId,
-        participant1: userId1,
-        participant2: userId2,
+        participant1: currentUserId,
+        participant2: targetWalletAddress,
       },
     });
 

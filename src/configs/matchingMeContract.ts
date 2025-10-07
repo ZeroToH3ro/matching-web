@@ -7,25 +7,11 @@ export interface MatchingMeContractConfig {
 
 const DEFAULT_CLOCK_OBJECT_ID = '0x6';
 
-function readEnv(name: string, fallback = ''): string {
-  // Client-side: Next.js injects NEXT_PUBLIC_ env vars into browser
-  if (typeof window !== 'undefined') {
-    return (process.env[name] as string | undefined) ?? fallback;
-  }
-
-  // Server-side: Full access to process.env
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env[name] ?? fallback;
-  }
-
-  return fallback;
-}
-
 export const matchingMeContractConfig: MatchingMeContractConfig = {
-  packageId: readEnv('NEXT_PUBLIC_PACKAGE_ID') || readEnv('NEXT_PUBLIC_MATCHING_ME_PACKAGE_ID'),
-  moduleName: readEnv('NEXT_PUBLIC_MATCHING_ME_MODULE_NAME', 'matching_me'),
-  profileRegistryId: readEnv('NEXT_PUBLIC_PROFILE_REGISTRY_ID') || readEnv('NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID'),
-  clockObjectId: readEnv('NEXT_PUBLIC_SUI_CLOCK_OBJECT_ID', DEFAULT_CLOCK_OBJECT_ID),
+  packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || process.env.NEXT_PUBLIC_MATCHING_ME_PACKAGE_ID || '',
+  moduleName: process.env.NEXT_PUBLIC_MATCHING_ME_MODULE_NAME || 'core',
+  profileRegistryId: process.env.NEXT_PUBLIC_PROFILE_REGISTRY_ID || process.env.NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID || '',
+  clockObjectId: process.env.NEXT_PUBLIC_SUI_CLOCK_OBJECT_ID || DEFAULT_CLOCK_OBJECT_ID,
 };
 
 // Debug log on client-side

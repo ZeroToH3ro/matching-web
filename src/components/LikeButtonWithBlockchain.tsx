@@ -118,8 +118,8 @@ export default function LikeButtonWithBlockchain({
       console.log("[LikeButton] Match activated");
 
       // Step 3: Create chat room from match
-      await createChatFromMatch(matchId);
-      console.log("[LikeButton] Chat room created");
+      const { chatRoomId, chatAllowlistId } = await createChatFromMatch(matchId);
+      console.log("[LikeButton] Chat room created:", { chatRoomId, chatAllowlistId });
 
       // Step 4: Save to database
       await saveMatchOnChain({
@@ -128,6 +128,14 @@ export default function LikeButtonWithBlockchain({
         targetUserAddress: targetUserAddress!,
         compatibilityScore: 95,
         digest: "", // Will be updated with actual digest
+      });
+
+      // Step 5: Save chat room to database
+      await saveChatRoomToDatabase({
+        chatRoomId,
+        chatAllowlistId,
+        currentUserId: account.address,
+        targetUserId: targetUserAddress!,
       });
 
       toast.success("🎉 It's a match! Chat room created!");
@@ -205,33 +213,99 @@ export default function LikeButtonWithBlockchain({
     });
   };
 
-  const createChatFromMatch = async (matchId: string): Promise<void> => {
+  const createChatFromMatch = async (matchId: string): Promise<{ chatRoomId: string; chatAllowlistId: string }> => {
+    const USAGE_TRACKER_ID = process.env.NEXT_PUBLIC_USAGE_TRACKER_ID || "0xc42ca99296a4b901b8ffc7dd858fe56855d3420996503950afad76f31449c1f7";
+    const MATCH_CHAT_REGISTRY_ID = process.env.NEXT_PUBLIC_MATCH_CHAT_REGISTRY_ID || "0xe909c265300cec16f82a534d30ff50c64295fd563809f0beaad38c88b24e9739";
     const CHAT_REGISTRY_ID = process.env.NEXT_PUBLIC_CHAT_REGISTRY_ID || "0x1d6554cbdd327bfcea9c8e16c511967c59a3c0c24b12270f2c2b62aec886d405";
     const ALLOWLIST_REGISTRY_ID = process.env.NEXT_PUBLIC_ALLOWLIST_REGISTRY_ID || "0xad9b4d1c670ac4032717c7b3d4136e6a3081fb0ea55f4c15ca88f8f5a624e399";
 
     return new Promise((resolve, reject) => {
       const tx = new Transaction();
 
-      // Create chat room
+      // Generate a simple encrypted key (in production, use proper encryption)
+      const encryptedKeyBytes = Array.from(Buffer.from("00", "hex"));
+
+      // Use the entry function wrapper - auto-creates shared ChatAllowlist
       tx.moveCall({
-        target: `${PACKAGE_ID}::chat::create_chat_from_match`,
+        target: `${PACKAGE_ID}::integration::create_chat_from_match_entry`,
         arguments: [
+          tx.object(USAGE_TRACKER_ID),
+          tx.object(MATCH_CHAT_REGISTRY_ID),
           tx.object(CHAT_REGISTRY_ID),
           tx.object(ALLOWLIST_REGISTRY_ID),
-          tx.object(matchId),
           tx.object(myProfileObjectId!),
-          tx.object("0x6"),
+          tx.object(matchId),
+          tx.pure.string("matching-app-chat"), // seal policy ID
+          tx.pure.vector("u8", encryptedKeyBytes),
+          tx.object("0x6"), // Clock
         ],
       });
 
       signAndExecuteTransaction(
         { transaction: tx },
         {
-          onSuccess: () => resolve(),
+          onSuccess: async (result) => {
+            try {
+              const txResult = await client.waitForTransaction({
+                digest: result.digest,
+                options: { showObjectChanges: true },
+              });
+
+              console.log("[LikeButton] Chat creation result:", txResult.objectChanges);
+
+              // Find created ChatRoom and ChatAllowlist objects
+              const chatRoomObject = txResult.objectChanges?.find(
+                (change: any) => change.type === "created" && change.objectType?.includes("::ChatRoom")
+              );
+
+              const allowlistObject = txResult.objectChanges?.find(
+                (change: any) => change.type === "created" && change.objectType?.includes("::ChatAllowlist")
+              );
+
+              if (!chatRoomObject || !("objectId" in chatRoomObject)) {
+                throw new Error("ChatRoom object not found in transaction");
+              }
+
+              if (!allowlistObject || !("objectId" in allowlistObject)) {
+                throw new Error("ChatAllowlist object not found in transaction");
+              }
+
+              resolve({
+                chatRoomId: chatRoomObject.objectId,
+                chatAllowlistId: allowlistObject.objectId,
+              });
+            } catch (error) {
+              reject(error);
+            }
+          },
           onError: reject,
         }
       );
     });
+  };
+
+  const saveChatRoomToDatabase = async (input: {
+    chatRoomId: string;
+    chatAllowlistId: string;
+    currentUserId: string;
+    targetUserId: string;
+  }) => {
+    try {
+      const response = await fetch('/api/save-chat-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save chat room to database');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[saveChatRoomToDatabase] Error:', error);
+      throw error;
+    }
   };
 
   return (

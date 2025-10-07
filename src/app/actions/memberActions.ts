@@ -73,8 +73,28 @@ export async function getMembers({
             }
         });
 
+        // Sync wallet addresses from userId for zkLogin users
+        const membersWithWallets = await Promise.all(
+            members.map(async (member) => {
+                // If walletAddress is missing but userId is a valid wallet address, sync it
+                if (!member.user.walletAddress && member.userId.startsWith('0x')) {
+                    try {
+                        await prisma.user.update({
+                            where: { id: member.userId },
+                            data: { walletAddress: member.userId }
+                        });
+                        // Update the in-memory object
+                        member.user.walletAddress = member.userId;
+                    } catch (error) {
+                        console.error(`[getMembers] Failed to sync wallet for ${member.userId}:`, error);
+                    }
+                }
+                return member;
+            })
+        );
+
         return {
-            items: members,
+            items: membersWithWallets,
             totalCount: count
         }
     } catch (error) {

@@ -12,27 +12,35 @@ import { calculateAge } from "@/lib/util";
 import { buildCreateProfileTransaction, fetchProfileRegistryReference } from "@/lib/contracts/matchingMe";
 import { isContractConfigured } from "@/configs/matchingMeContract";
 import { markProfileCompleteOnChain } from "@/app/actions/profileOnChainActions";
+import { useDialogsStore } from "@/store/dialogs.store";
 import type { Member } from "@prisma/client";
 
 interface Props {
   member: Member;
   hasOnChainProfile: boolean;
+  walletAddress?: string; // Wallet address from database (for zkLogin users)
 }
 
-export default function OnChainProfileSection({ member, hasOnChainProfile }: Props) {
+export default function OnChainProfileSection({ member, hasOnChainProfile, walletAddress: dbWalletAddress }: Props) {
   const router = useRouter();
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+  const { setConnectWalletOpen } = useDialogsStore();
 
   const [isCreatingOnChain, setIsCreatingOnChain] = useState(false);
   const [onChainProfileCreated, setOnChainProfileCreated] = useState(hasOnChainProfile);
 
   const contractConfigured = isContractConfigured();
 
+  // Use wallet from dApp kit if available, otherwise use from database (zkLogin)
+  const walletAddress = account?.address || dbWalletAddress;
+
   console.log("[OnChainProfileSection] Render state:", {
     contractConfigured,
     accountAddress: account?.address,
+    dbWalletAddress,
+    walletAddress,
     onChainProfileCreated,
     hasOnChainProfile,
   });
@@ -43,8 +51,15 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
       return;
     }
 
+    if (!walletAddress) {
+      toast.error("Wallet address not found");
+      return;
+    }
+
+    // Check if wallet is connected for signing transactions
     if (!account?.address) {
-      toast.error("Please connect your wallet first");
+      toast.error("Please connect your wallet to sign the transaction");
+      setConnectWalletOpen(true);
       return;
     }
 
@@ -59,12 +74,12 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
         return;
       }
 
-      console.log("[OnChainProfileSection] Creating on-chain profile for:", account.address);
+      console.log("[OnChainProfileSection] Creating on-chain profile for:", walletAddress);
       toast.info("Creating profile on blockchain...");
 
       // Build transaction - same as test-contract
       const transaction = buildCreateProfileTransaction({
-        ownerAddress: account.address,
+        ownerAddress: walletAddress,
         displayName: member.name,
         age,
         encryptedPayload: member.description, // Use plain bio, not encrypted
@@ -94,7 +109,7 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
               const profileObject = txResult.objectChanges?.find(
                 (change: any) =>
                   change.type === "created" &&
-                  change.objectType?.includes("::matching_me::UserProfile")
+                  change.objectType?.includes("::UserProfile")
               );
 
               if (!profileObject || !("objectId" in profileObject)) {
@@ -106,7 +121,7 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
               // Save to database
               const saveResult = await markProfileCompleteOnChain({
                 profileObjectId: profileObject.objectId,
-                walletAddress: account.address,
+                walletAddress: walletAddress,
               });
 
               if (saveResult.status !== "success") {
@@ -142,19 +157,31 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
     return null;
   }
 
-  // Wallet not connected
-  if (!account?.address) {
+  // No wallet address at all (shouldn't happen for zkLogin users)
+  if (!walletAddress) {
     return (
       <>
         <Alert className="border-blue-500 bg-blue-50">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-            <div className="space-y-1">
-              <h4 className="font-semibold text-sm">Connect Wallet Required</h4>
-              <AlertDescription className="text-sm">
-                Please connect your Sui wallet to create an on-chain profile and access Web3 features.
-              </AlertDescription>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="space-y-1">
+                <h4 className="font-semibold text-sm">Wallet Required</h4>
+                <AlertDescription className="text-sm">
+                  A wallet address is required to create an on-chain profile and access Web3 features.
+                </AlertDescription>
+              </div>
             </div>
+            {!account?.address && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setConnectWalletOpen(true)}
+                className="ml-4 bg-blue-600 hover:bg-blue-700"
+              >
+                Connect Wallet
+              </Button>
+            )}
           </div>
         </Alert>
         <Separator />
@@ -162,7 +189,10 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
     );
   }
 
-  // Wallet connected
+  // Wallet address exists but need to connect for signing
+  const needsWalletConnection = !account?.address && dbWalletAddress;
+
+  // Wallet connected or ready
   return (
     <>
       <Alert className={onChainProfileCreated ? "border-green-500 bg-green-50" : "border-yellow-500 bg-yellow-50"}>
@@ -180,6 +210,8 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
               <AlertDescription className="text-sm">
                 {onChainProfileCreated ? (
                   "Your profile is securely stored on the Sui blockchain with end-to-end encryption."
+                ) : needsWalletConnection ? (
+                  "Connect your wallet to create your blockchain profile and access Web3 features."
                 ) : (
                   "Create your blockchain profile to enable decentralized matching, encrypted messaging, and Web3 features."
                 )}
@@ -189,7 +221,7 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
           {!onChainProfileCreated && (
             <Button
               type="button"
-              onClick={handleCreateOnChainProfile}
+              onClick={needsWalletConnection ? () => setConnectWalletOpen(true) : handleCreateOnChainProfile}
               disabled={isCreatingOnChain}
               size="sm"
               className="ml-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
@@ -198,6 +230,11 @@ export default function OnChainProfileSection({ member, hasOnChainProfile }: Pro
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating...
+                </>
+              ) : needsWalletConnection ? (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Connect Wallet
                 </>
               ) : (
                 <>
