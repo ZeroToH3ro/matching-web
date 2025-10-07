@@ -91,7 +91,10 @@ export default function CompleteProfileForm() {
         const result = await completeSocialLoginProfile(data);
 
         if (result.status !== 'success') {
-          throw new Error(result.error || 'Failed to complete profile');
+          const errorMessage = Array.isArray(result.error) 
+            ? result.error.map(e => e.message).join(', ') 
+            : result.error || 'Failed to complete profile';
+          throw new Error(errorMessage);
         }
 
         // Update session

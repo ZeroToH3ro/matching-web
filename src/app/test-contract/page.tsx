@@ -1693,7 +1693,7 @@ export default function TestContractPage() {
 
       // Step 9: Create blob URL for preview
       const contentType = fields.content_type === 0 ? 'image/jpeg' : 'video/mp4';
-      const blob = new Blob([decryptedBytes], { type: contentType });
+      const blob = new Blob([Uint8Array.from(decryptedBytes)], { type: contentType });
       const url = URL.createObjectURL(blob);
 
       alert(`✅ Media decrypted successfully!\nYou can now view it.`);

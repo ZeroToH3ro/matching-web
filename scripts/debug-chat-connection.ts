@@ -204,6 +204,9 @@ async function debugChatConnection(myWallet: string, otherWallet: string) {
 
           // Check message count
           try {
+            if (!chatRoomId) {
+              throw new Error("Chat room ID is null");
+            }
             const chatObj = await client.getObject({
               id: chatRoomId,
               options: {

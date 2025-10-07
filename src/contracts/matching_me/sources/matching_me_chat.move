@@ -1,5 +1,3 @@
-/// Matching.Me Chat Module with Seal Protocol Integration
-/// Based on Sui Stack Messaging SDK
 module matching_me::chat {
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};

@@ -75,7 +75,6 @@ async function findChatByEvents(matchId: string) {
 
             console.log("\nChat Room Object:");
             console.log("  Owner:", chatObj.data?.owner);
-            console.log("  Type:", chatObj.data?.owner?.["ObjectOwner"] ? "Shared" : "Owned");
 
             if (chatObj.data?.content && chatObj.data.content.dataType === "moveObject") {
               const fields = chatObj.data.content.fields as any;

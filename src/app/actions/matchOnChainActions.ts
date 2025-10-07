@@ -153,10 +153,9 @@ export async function getUserProfileObjectId(
   try {
     const currentUserId = userId || (await getAuthUserId());
 
-    const user = await prisma.user.findUnique({
+    const user = (await prisma.user.findUnique({
       where: { id: currentUserId },
-      select: { profileObjectId: true },
-    });
+    })) as any;
 
     return user?.profileObjectId || null;
   } catch (error) {
@@ -177,7 +176,7 @@ export async function getChatRoomByParticipants(
 ): Promise<{ chatRoomId: string; chatAllowlistId: string } | null> {
   try {
     // First, try to get from database cache
-    const cachedChatRoom = await prisma.chatRoom.findFirst({
+    const cachedChatRoom = await (prisma as any).chatRoom?.findFirst?.({
       where: {
         OR: [
           { participant1: currentUserId, participant2: targetWalletAddress },
@@ -195,10 +194,9 @@ export async function getChatRoomByParticipants(
     }
 
     // Get current user's wallet address from database
-    const currentUser = await prisma.user.findUnique({
+    const currentUser = (await prisma.user.findUnique({
       where: { id: currentUserId },
-      select: { walletAddress: true },
-    });
+    })) as any;
 
     const currentWalletAddress = currentUser?.walletAddress;
     if (!currentWalletAddress) return null;
@@ -220,7 +218,7 @@ export async function getChatRoomByParticipants(
     if (!chatAllowlistId) return null;
 
     // Cache in database for future lookups
-    await prisma.chatRoom.upsert({
+    await (prisma as any).chatRoom?.upsert?.({
       where: {
         chatRoomId,
       },
