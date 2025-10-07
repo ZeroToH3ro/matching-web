@@ -6,6 +6,13 @@ import { addYears } from 'date-fns';
 import { getAuthUserId } from './authActions';
 import type { GetMemberParams, PaginatedResponse } from '@/types';
 
+export type MemberWithUser = Member & {
+    user: {
+        profileObjectId: string | null;
+        walletAddress: string | null;
+    };
+};
+
 function getAgeRange(ageRange: string): Date[] {
     const [minAge, maxAge] = ageRange.split(',');
     const currentDate = new Date();
@@ -22,7 +29,7 @@ export async function getMembers({
     pageNumber = '1',
     pageSize = '12',
     withPhoto = 'true'
-}: GetMemberParams): Promise<PaginatedResponse<Member>> {
+}: GetMemberParams): Promise<PaginatedResponse<MemberWithUser>> {
     const userId = await getAuthUserId();
 
     const [minDob, maxDob] = getAgeRange(ageRange);
@@ -55,11 +62,39 @@ export async function getMembers({
             ...membersSelect,
             orderBy: { [orderBy]: 'desc' },
             skip,
-            take: limit
+            take: limit,
+            include: {
+                user: {
+                    select: {
+                        profileObjectId: true,
+                        walletAddress: true,
+                    }
+                }
+            }
         });
 
+        // Sync wallet addresses from userId for zkLogin users
+        const membersWithWallets = await Promise.all(
+            members.map(async (member) => {
+                // If walletAddress is missing but userId is a valid wallet address, sync it
+                if (!member.user.walletAddress && member.userId.startsWith('0x')) {
+                    try {
+                        await prisma.user.update({
+                            where: { id: member.userId },
+                            data: { walletAddress: member.userId }
+                        });
+                        // Update the in-memory object
+                        member.user.walletAddress = member.userId;
+                    } catch (error) {
+                        console.error(`[getMembers] Failed to sync wallet for ${member.userId}:`, error);
+                    }
+                }
+                return member;
+            })
+        );
+
         return {
-            items: members,
+            items: membersWithWallets,
             totalCount: count
         }
     } catch (error) {

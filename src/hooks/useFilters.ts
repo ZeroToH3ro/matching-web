@@ -71,8 +71,8 @@ export const useFilters = () => {
         else setFilters('gender', [...gender, value]);
     }
 
-    const handleWithPhotoToggle = (e: ChangeEvent<HTMLInputElement>) => {
-        setFilters('withPhoto', e.target.checked);
+    const handleWithPhotoToggle = (checked: boolean) => {
+        setFilters('withPhoto', checked);
     }
 
     return {

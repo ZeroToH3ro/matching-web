@@ -8,21 +8,28 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { Member } from "@prisma/client";
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import {
-  Button,
-  Input,
-  Textarea,
-} from "@nextui-org/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { updateMemberProfile } from "@/app/actions/userActions";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { handleFormServerErrors } from "@/lib/util";
+import { Loader2, AlertCircle } from "lucide-react";
+import OnChainProfileSection from "./OnChainProfileSection";
 
 type Props = {
   member: Member;
+  hasOnChainProfile?: boolean;
+  walletAddress?: string;
 };
+
 export default function EditForm({
   member,
+  hasOnChainProfile = false,
+  walletAddress,
 }: Props) {
   const router = useRouter();
   const {
@@ -71,73 +78,127 @@ export default function EditForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-6"
-    >
-      <Input
-        label="Name"
-        variant="bordered"
-        labelPlacement="outside"
-        {...register("name")}
-        defaultValue={member.name}
-        isInvalid={!!errors.name}
-        errorMessage={errors.name?.message}
-        classNames={{
-          inputWrapper: "h-12"
-        }}
+    <div className="flex flex-col gap-6">
+      {/* On-Chain Profile Status */}
+      <OnChainProfileSection
+        member={member}
+        hasOnChainProfile={hasOnChainProfile}
+        walletAddress={walletAddress}
       />
-      <Textarea
-        label="Description"
-        variant="bordered"
-        labelPlacement="outside"
-        {...register("description")}
-        defaultValue={member.description}
-        isInvalid={!!errors.description}
-        errorMessage={errors.description?.message}
-        minRows={6}
-      />
-      <div className="flex flex-row gap-3">
+
+      {/* Profile Edit Form */}
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-6"
+      >
+        {/* Name Field */}
+      <div className="space-y-2">
+        <Label htmlFor="name" className="text-base font-medium">
+          Name
+        </Label>
         <Input
-          label="City"
-          variant="bordered"
-          labelPlacement="outside"
-          {...register("city")}
-          defaultValue={member.city}
-          isInvalid={!!errors.city}
-          errorMessage={errors.city?.message}
-          classNames={{
-            inputWrapper: "h-12"
-          }}
+          id="name"
+          {...register("name")}
+          defaultValue={member.name}
+          className="h-12"
+          aria-invalid={!!errors.name}
         />
-        <Input
-          label="Country"
-          variant="bordered"
-          labelPlacement="outside"
-          {...register("country")}
-          defaultValue={member.country}
-          isInvalid={!!errors.country}
-          errorMessage={errors.country?.message}
-          classNames={{
-            inputWrapper: "h-12"
-          }}
-        />
+        {errors.name && (
+          <p className="text-sm text-destructive flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {errors.name.message}
+          </p>
+        )}
       </div>
+
+      {/* Description Field */}
+      <div className="space-y-2">
+        <Label htmlFor="description" className="text-base font-medium">
+          Description
+        </Label>
+        <Textarea
+          id="description"
+          {...register("description")}
+          defaultValue={member.description}
+          rows={6}
+          className="resize-none"
+          aria-invalid={!!errors.description}
+        />
+        {errors.description && (
+          <p className="text-sm text-destructive flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {errors.description.message}
+          </p>
+        )}
+      </div>
+
+      {/* City and Country Fields */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="city" className="text-base font-medium">
+            City
+          </Label>
+          <Input
+            id="city"
+            {...register("city")}
+            defaultValue={member.city}
+            className="h-12"
+            aria-invalid={!!errors.city}
+          />
+          {errors.city && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {errors.city.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="country" className="text-base font-medium">
+            Country
+          </Label>
+          <Input
+            id="country"
+            {...register("country")}
+            defaultValue={member.country}
+            className="h-12"
+            aria-invalid={!!errors.country}
+          />
+          {errors.country && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              {errors.country.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Server Error Alert */}
       {errors.root?.serverError && (
-        <p className="text-danger text-sm">
-          {errors.root.serverError.message}
-        </p>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {errors.root.serverError.message}
+          </AlertDescription>
+        </Alert>
       )}
+
+      {/* Submit Button */}
       <Button
         type="submit"
-        className="flex self-end"
-        variant="solid"
-        isDisabled={!isValid || !isDirty}
-        isLoading={isSubmitting}
-        color="default"
+        className="self-end min-w-[140px]"
+        disabled={!isValid || !isDirty || isSubmitting}
       >
-        Update profile
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Updating...
+          </>
+        ) : (
+          "Update profile"
+        )}
       </Button>
-    </form>
+      </form>
+    </div>
   );
 }

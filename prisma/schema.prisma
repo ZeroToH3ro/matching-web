@@ -38,6 +38,8 @@ model User {
   accounts        Account[]
   member          Member?
   role            Role      @default(MEMBER)
+  profileObjectId String?   // On-chain profile object ID
+  walletAddress   String?   // Sui wallet address
 }
 
 model Member {
@@ -74,8 +76,21 @@ model Like {
   sourceMember Member @relation("source", fields: [sourceUserId], references: [userId], onDelete: Cascade)
   targetUserId String
   targetMember Member @relation("target", fields: [targetUserId], references: [userId], onDelete: Cascade)
+  matchId      String?   // On-chain match object ID
+  matchStatus  Int       @default(0) // 0=pending, 1=active
+  createdAt    DateTime  @default(now())
 
   @@id([sourceUserId, targetUserId])
+}
+
+model ChatRoom {
+  id              String   @id @default(cuid())
+  chatRoomId      String   @unique // On-chain chat room object ID
+  chatAllowlistId String   // On-chain allowlist object ID
+  participant1    String   // User ID
+  participant2    String   // User ID
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model Message {
