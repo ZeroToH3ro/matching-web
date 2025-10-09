@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSuiClient } from "@mysten/dapp-kit";
 
-const PACKAGE_ID = "0x2e799b3d9cb329711ce4bc09c9bae46bf09346fbcc6dea0398879bb626a49ee1";
+const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID;
 
 export interface UserProfile {
   id: string;

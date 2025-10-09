@@ -34,9 +34,10 @@ export default auth((req) => {
         return NextResponse.redirect(new URL('/login', nextUrl))
     }
 
-    if (isLoggedIn && !isProfileComplete && pathname !== '/complete-profile') {
-        return NextResponse.redirect(new URL('/complete-profile', nextUrl));
-    }
+    // TODO: handlge wrong logic before
+    // if (isLoggedIn && !isProfileComplete && pathname !== '/complete-profile') {
+    //     return NextResponse.redirect(new URL('/complete-profile', nextUrl));
+    // }
 
     return NextResponse.next();
 })
