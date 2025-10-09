@@ -21,9 +21,7 @@ module matching_me::core {
     const ECannotMatchSelf: u64 = 6;
     const EInsufficientPermissions: u64 = 7;
     const EInvalidSubscription: u64 = 8;
-    const EMatchNotFound: u64 = 9;
     const ESubscriptionExpired: u64 = 10;
-    const EMediaNotFound: u64 = 11;
     const EInvalidVisibilityLevel: u64 = 12;
 
     // ===== Constants =====
@@ -36,17 +34,14 @@ module matching_me::core {
 
     // Profile Visibility Levels
     const VISIBILITY_PUBLIC: u8 = 0;
-    const VISIBILITY_VERIFIED_ONLY: u8 = 1;
     const VISIBILITY_MATCHES_ONLY: u8 = 2;
 
     // Match Status
     const MATCH_STATUS_PENDING: u8 = 0;
     const MATCH_STATUS_ACTIVE: u8 = 1;
-    const MATCH_STATUS_EXPIRED: u8 = 2;
     const MATCH_STATUS_BLOCKED: u8 = 3;
 
     // Subscription Tiers
-    const TIER_FREE: u8 = 0;
     const TIER_BASIC: u8 = 1;
     const TIER_PREMIUM: u8 = 2;
     const TIER_PLATINUM: u8 = 3;
@@ -248,8 +243,7 @@ module matching_me::core {
         table::contains(&registry.profiles, owner)
     }
 
-    /// O(1) get profile ID
-    fun get_profile_id(registry: &ProfileRegistry, owner: address): ID {
+    public fun get_profile_id(registry: &ProfileRegistry, owner: address): ID {
         *table::borrow(&registry.profiles, owner)
     }
 
