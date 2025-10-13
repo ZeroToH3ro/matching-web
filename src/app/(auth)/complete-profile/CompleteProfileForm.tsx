@@ -23,6 +23,7 @@ import { completeSocialLoginProfile } from "@/app/actions/authActions";
 import { calculateAge } from "@/lib/util";
 import type { SuiTransactionBlockResponse } from "@mysten/sui/client";
 import { isContractConfigured } from "@/configs/matchingMeContract";
+import { getProfileIdByAddress, getProfileInfo } from "@/lib/blockchain/contractQueries";
 
 interface EncryptionResponse {
   ciphertext: string;
@@ -53,7 +54,11 @@ export default function CompleteProfileForm() {
       client.executeTransactionBlock({
         transactionBlock: bytes,
         signature,
-        options: { showEffects: true, showEvents: true },
+        options: {
+          showEvents: true,
+          showRawEffects: true,
+          showObjectChanges: true,
+        },
         requestType: "WaitForLocalExecution",
       }),
   });
@@ -71,6 +76,7 @@ export default function CompleteProfileForm() {
         setError("root.serverError", {
           message: "Connect your Sui wallet before completing your profile.",
         });
+        setIsLoading(false);
         return;
       }
 
@@ -80,6 +86,7 @@ export default function CompleteProfileForm() {
         setError("root.serverError", {
           message: "You must be at least 18 years old to create a profile.",
         });
+        setIsLoading(false);
         return;
       }
 
@@ -98,51 +105,84 @@ export default function CompleteProfileForm() {
         throw new Error('Wallet not connected');
       }
 
-      const encryptionResponse = await fetch("/api/profile/encrypt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profile: buildProfilePayload(data),
+      // Check if user already has a profile on-chain
+      let profileObjectId = await getProfileIdByAddress(client, account.address);
+
+      if (profileObjectId) {
+        // Profile exists - sync existing data
+        console.log('✅ Existing on-chain profile found:', profileObjectId);
+
+        const existingProfile = await getProfileInfo(client, profileObjectId);
+
+        if (existingProfile) {
+          console.log('📦 Syncing existing profile data:', {
+            displayName: existingProfile.displayName,
+            age: existingProfile.age,
+            interests: existingProfile.interests,
+          });
+
+          // Mark as complete with existing profile
+          const markResult = await markProfileCompleteOnChain({
+            profileObjectId,
+            // Don't pass seal params - use existing ones
+          });
+
+          if (markResult.status !== "success") {
+            throw new Error(markResult.error);
+          }
+        }
+      } else {
+        // No profile exists - create new one
+        console.log('🆕 No on-chain profile found, creating new...');
+
+        const encryptionResponse = await fetch("/api/profile/encrypt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile: buildProfilePayload(data),
+            ownerAddress: account.address,
+          }),
+        });
+
+        if (!encryptionResponse.ok) {
+          const errorBody = await safeParseError(encryptionResponse);
+          throw new Error(errorBody ?? "Failed to encrypt profile data");
+        }
+
+        const encrypted: EncryptionResponse = await encryptionResponse.json();
+
+        const registry = await fetchProfileRegistryReference(client);
+
+        const transaction = buildCreateProfileTransaction({
           ownerAddress: account.address,
-        }),
-      });
+          displayName: data.name,
+          age,
+          encryptedPayload: encrypted.ciphertext,
+          interests: deriveInterests(data),
+          registry,
+        });
 
-      if (!encryptionResponse.ok) {
-        const errorBody = await safeParseError(encryptionResponse);
-        throw new Error(errorBody ?? "Failed to encrypt profile data");
-      }
+        const executionResult = await signAndExecuteTransaction({
+          transaction,
+        });
 
-      const encrypted: EncryptionResponse = await encryptionResponse.json();
+        profileObjectId = extractProfileObjectId(executionResult, account.address);
 
-      const registry = await fetchProfileRegistryReference(client);
+        if (!profileObjectId) {
+          throw new Error("Profile created but object ID could not be determined.");
+        }
 
-      const transaction = buildCreateProfileTransaction({
-        ownerAddress: account.address,
-        displayName: data.name,
-        age,
-        encryptedPayload: encrypted.ciphertext,
-        interests: deriveInterests(data),
-        registry,
-      });
+        const markResult = await markProfileCompleteOnChain({
+          profileObjectId,
+          sealPolicyId: encrypted.policyId,
+          sealKeyId: encrypted.keyId,
+        });
 
-      const executionResult = await signAndExecuteTransaction({
-        transaction,
-      });
+        if (markResult.status !== "success") {
+          throw new Error(markResult.error);
+        }
 
-      const profileObjectId = extractProfileObjectId(executionResult, account.address);
-
-      if (!profileObjectId) {
-        throw new Error("Profile created but object ID could not be determined.");
-      }
-
-      const markResult = await markProfileCompleteOnChain({
-        profileObjectId,
-        sealPolicyId: encrypted.policyId,
-        sealKeyId: encrypted.keyId,
-      });
-
-      if (markResult.status !== "success") {
-        throw new Error(markResult.error);
+        console.log('✅ New on-chain profile created:', profileObjectId);
       }
 
       const onChainUpdatedSession = await update({ profileComplete: true });
@@ -245,14 +285,34 @@ function extractProfileObjectId(
   result: SuiTransactionBlockResponse,
   ownerAddress: string,
 ): string | null {
+  // Try objectChanges first (more reliable)
+  if (result.objectChanges) {
+    for (const change of result.objectChanges) {
+      if (
+        change.type === 'created' &&
+        'owner' in change &&
+        typeof change.owner === 'object' &&
+        change.owner !== null &&
+        'AddressOwner' in change.owner &&
+        change.owner.AddressOwner === ownerAddress
+      ) {
+        console.log('✅ Found profile via objectChanges:', change.objectId);
+        return change.objectId;
+      }
+    }
+  }
+
+  // Fallback to effects.created
   const createdObjects = result.effects?.created ?? [];
 
   for (const created of createdObjects) {
     if (isAddressOwner(created.owner) && created.owner.AddressOwner === ownerAddress) {
+      console.log('✅ Found profile via effects.created:', created.reference?.objectId);
       return created.reference?.objectId ?? null;
     }
   }
 
+  console.error('❌ No profile object found in result');
   return null;
 }
 

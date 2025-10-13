@@ -131,4 +131,65 @@
   .gradient-text {
     @apply bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent;
   }
+
+  /* Toast notifications - ensure they appear above modals */
+  .Toastify__toast-container {
+    z-index: 9999999 !important;
+    position: fixed !important;
+  }
+  
+  .Toastify__toast {
+    z-index: 9999999 !important;
+    position: relative !important;
+  }
+
+  /* Ensure toasts work well with dark mode */
+  .dark .Toastify__toast {
+    background: hsl(var(--card)) !important;
+    color: hsl(var(--card-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+
+  .dark .Toastify__toast--success {
+    background: hsl(142 76% 36%) !important;
+    color: white !important;
+  }
+
+  .dark .Toastify__toast--error {
+    background: hsl(var(--destructive)) !important;
+    color: hsl(var(--destructive-foreground)) !important;
+  }
+
+  .dark .Toastify__toast--warning {
+    background: hsl(38 92% 50%) !important;
+    color: white !important;
+  }
+
+  /* Toast animations and styling */
+  .Toastify__toast {
+    border-radius: 0.5rem !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .Toastify__toast-body {
+    padding: 0.75rem !important;
+  }
+
+  /* Ensure toasts appear above everything including modals */
+  .Toastify__toast-container--bottom-right {
+    bottom: 1rem !important;
+    right: 1rem !important;
+  }
+
+  /* Animation improvements */
+  .Toastify__slide-enter--bottom-right {
+    animation-name: Toastify__slideInRight !important;
+  }
+
+  .Toastify__slide-exit--bottom-right {
+    animation-name: Toastify__slideOutRight !important;
+  }
 }

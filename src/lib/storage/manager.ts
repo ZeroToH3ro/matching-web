@@ -50,14 +50,28 @@ export class StorageManager {
       }
 
       // Standard upload
-      return await provider.upload(file, options);
+      const result = await provider.upload(file, options);
+      
+      // Ensure ID has provider prefix for proper retrieval
+      if (!result.id.includes(':')) {
+        result.id = `${provider.name}:${result.id}`;
+      }
+      
+      return result;
     } catch (error) {
       // Fallback to alternative provider if hybrid strategy
       if (this.strategy === 'hybrid') {
         const fallbackProvider = this.getFallbackProvider(provider.name);
         if (fallbackProvider) {
           console.warn(`Primary upload failed, trying fallback provider: ${fallbackProvider.name}`);
-          return await fallbackProvider.upload(file, options);
+          const fallbackResult = await fallbackProvider.upload(file, options);
+          
+          // Ensure fallback result also has provider prefix
+          if (!fallbackResult.id.includes(':')) {
+            fallbackResult.id = `${fallbackProvider.name}:${fallbackResult.id}`;
+          }
+          
+          return fallbackResult;
         }
       }
       throw error;
@@ -100,6 +114,19 @@ export class StorageManager {
   }
 
   getUrl(id: string): string {
+    // Handle legacy IDs without provider prefix
+    if (!id.includes(':')) {
+      // Try to determine provider based on strategy or use default
+      const defaultProvider = this.strategy === 'walrus' ? 'walrus' : 'cloudinary';
+      const provider = this.providers.get(defaultProvider);
+      
+      if (provider) {
+        return provider.getUrl(id);
+      }
+      
+      throw new Error(`No default provider available for legacy ID: ${id}`);
+    }
+
     const [providerName, ...idParts] = id.split(':');
     const provider = this.providers.get(providerName);
     

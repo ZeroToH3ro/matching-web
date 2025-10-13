@@ -11,13 +11,6 @@ const DynamicHeartAnimation = dynamic(
     ),
   { ssr: false }
 );
-const DynamicAnimatedBackground = dynamic(
-  () =>
-    import(
-      "@/components/animations/AnimatedBackground"
-    ),
-  { ssr: false }
-);
 const DynamicAnimatedStats = dynamic(
   () =>
     import(
@@ -41,7 +34,6 @@ export default async function Home() {
     <div className="-mx-[calc(50vw-50%)] w-screen -mt-[calc(1.25rem)]">
       {/* Hero Section */}
       <div className="w-full min-h-screen relative overflow-hidden bg-gradient-to-b from-pink-100 via-pink-50 to-white">
-        <DynamicAnimatedBackground />
         <DynamicHeartAnimation />
 
         <div className="w-full max-w-7xl mx-auto px-4 py-20 flex flex-col justify-center items-center min-h-screen">

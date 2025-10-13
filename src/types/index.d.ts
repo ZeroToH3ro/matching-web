@@ -35,7 +35,7 @@ type UserFilters = {
     ageRange: number[];
     gender: string[];
     orderBy: string;
-    withPhoto: boolean;
+
 }
 
 type PaginatedResponse<T> = {
@@ -57,7 +57,7 @@ type GetMemberParams = {
     ageRange?: string;
     gender?: string;
     orderBy?: string;
-    withPhoto?: string;
+
     pageNumber?: string;
     pageSize?: string;
 }

@@ -15,11 +15,15 @@ import LoadingComponent from "@/components/Loading";
 type Props = {
   members: Member[];
   likeIds: string[];
+  currentUserId?: string;
+  myProfileObjectId?: string | null;
 };
 
 export default function ListsTab({
   members,
   likeIds,
+  currentUserId,
+  myProfileObjectId,
 }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -74,6 +78,8 @@ export default function ListsTab({
                         key={member.id}
                         member={member}
                         likeIds={likeIds}
+                        currentUserId={currentUserId}
+                        myProfileObjectId={myProfileObjectId}
                       />
                     ))}
                   </div>

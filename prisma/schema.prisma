@@ -28,18 +28,25 @@ model Account {
 
 model User {
   // `id` is the wallet address
-  id              String    @id @default(cuid())
-  name            String?
-  email           String?   @unique
-  emailVerified   DateTime?
-  passwordHash    String?
-  image           String?
-  profileComplete Boolean   @default(false)
-  accounts        Account[]
-  member          Member?
-  role            Role      @default(MEMBER)
-  profileObjectId String?   // On-chain profile object ID
-  walletAddress   String?   // Sui wallet address
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String?   @unique
+  emailVerified        DateTime?
+  passwordHash         String?
+  image                String?
+  profileComplete      Boolean   @default(false)
+  accounts             Account[]
+  member               Member?
+  role                 Role      @default(MEMBER)
+  profileObjectId      String?   // On-chain profile object ID
+  walletAddress        String?   // Sui wallet address
+  
+  // Avatar fields
+  publicAvatarBlobId   String?   // Walrus blob ID for public (face-swapped) avatar
+  privateAvatarBlobId  String?   // Walrus blob ID for private (encrypted) avatar
+  avatarSealPolicyId   String?   // Seal Protocol policy ID for avatar access control
+  avatarUploadedAt     DateTime? // When avatar was last uploaded
+  avatarSettings       Json      @default("{}")  // Avatar privacy and display settings
 }
 
 model Member {
@@ -124,4 +131,60 @@ enum TokenType {
 enum Role {
   ADMIN
   MEMBER
+}
+
+// Avatar Analytics Models
+model AvatarUploadMetric {
+  id                String   @id @default(cuid())
+  userId            String
+  timestamp         DateTime @default(now())
+  fileSize          Int
+  originalFormat    String
+  processedFormats  String[] @default([])
+  processingTime    Int
+  success           Boolean
+  errorCode         String?
+  errorMessage      String?
+  compressionRatio  Float?
+  variantsGenerated Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([timestamp])
+  @@index([success])
+}
+
+model AvatarAccessMetric {
+  id           String   @id @default(cuid())
+  targetUserId String
+  viewerUserId String?
+  timestamp    DateTime @default(now())
+  avatarType   String
+  isEncrypted  Boolean
+  hasAccess    Boolean
+  loadTime     Int?
+  cacheHit     Boolean  @default(false)
+  userAgent    String?
+  referrer     String?
+  errorCode    String?
+  createdAt    DateTime @default(now())
+
+  @@index([targetUserId, timestamp])
+  @@index([viewerUserId, timestamp])
+  @@index([timestamp])
+  @@index([avatarType])
+}
+
+model AvatarEngagementMetric {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  timestamp DateTime @default(now())
+  sessionId String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([timestamp])
+  @@index([action])
 }

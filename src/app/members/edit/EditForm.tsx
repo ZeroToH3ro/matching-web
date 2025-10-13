@@ -19,6 +19,7 @@ import { toast } from "react-toastify";
 import { handleFormServerErrors } from "@/lib/util";
 import { Loader2, AlertCircle } from "lucide-react";
 import OnChainProfileSection from "./OnChainProfileSection";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 type Props = {
   member: Member;
@@ -32,6 +33,8 @@ export default function EditForm({
   walletAddress,
 }: Props) {
   const router = useRouter();
+  const [mounted, setMounted] = React.useState(false);
+  
   const {
     register,
     handleSubmit,
@@ -48,6 +51,12 @@ export default function EditForm({
     mode: "onTouched",
   });
 
+
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (member) {
       reset({
@@ -58,6 +67,16 @@ export default function EditForm({
       });
     }
   }, [member, reset]);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2">Loading form...</span>
+      </div>
+    );
+  }
 
   const onSubmit = async (
     data: MemberEditSchema
@@ -80,11 +99,23 @@ export default function EditForm({
   return (
     <div className="flex flex-col gap-6">
       {/* On-Chain Profile Status */}
-      <OnChainProfileSection
-        member={member}
-        hasOnChainProfile={hasOnChainProfile}
-        walletAddress={walletAddress}
-      />
+      <ErrorBoundary
+        fallback={
+          <div className="p-4 border border-yellow-200 rounded-lg bg-yellow-50">
+            <p className="text-yellow-600 text-sm">
+              Blockchain features are temporarily unavailable. You can still edit your profile.
+            </p>
+          </div>
+        }
+      >
+        <OnChainProfileSection
+          member={member}
+          hasOnChainProfile={hasOnChainProfile}
+          walletAddress={walletAddress}
+        />
+      </ErrorBoundary>
+
+
 
       {/* Profile Edit Form */}
       <form

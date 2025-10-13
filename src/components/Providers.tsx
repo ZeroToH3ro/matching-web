@@ -14,6 +14,7 @@ import { SuiClientProvider, WalletProvider } from '@mysten/dapp-kit'
 import { networkConfig } from '@/configs/networkConfig'
 import { RegisterEnokiWallets } from '@/providers/RegisterEnokiWallets'
 import { WalrusClientProvider } from '@/providers/WalrusClientContext'
+import { CurrentUserProvider } from '@/contexts/CurrentUserContext'
 import { SignInWithWalletDialog } from './SignInWithWalletDialog'
 import AuthStateSync from './AuthStateSync'
 
@@ -66,23 +67,39 @@ export default function Providers({
       <AuthStateSync />
       <QueryClientProvider client={queryClient}>
         <NextUIProvider>
-          <ToastContainer position="bottom-right" hideProgressBar />
-          <SuiClientProvider
-            networks={networkConfig}
-            defaultNetwork={suiNetwork}
-          >
-            <RegisterEnokiWallets
-              googleClientId={googleClientId}
-              enokiApiKey={enokiApiKey}
-              redirectUrl={redirectUrl}
-            />
-            <WalrusClientProvider>
-              <WalletProvider autoConnect preferredWallets={preferredWallets}>
-                <SignInWithWalletDialog />
-                {children}
-              </WalletProvider>
-            </WalrusClientProvider>
-          </SuiClientProvider>
+          <ToastContainer 
+            position="bottom-right" 
+            hideProgressBar 
+            autoClose={5000}
+            newestOnTop={true}
+            closeOnClick={true}
+            rtl={false}
+            pauseOnFocusLoss={false}
+            draggable={true}
+            pauseOnHover={true}
+            style={{ zIndex: 9999999 }}
+            toastStyle={{ zIndex: 9999999 }}
+            className="!z-[9999999]"
+            toastClassName="!z-[9999999]"
+          />
+          <CurrentUserProvider>
+            <SuiClientProvider
+              networks={networkConfig}
+              defaultNetwork={suiNetwork}
+            >
+              <RegisterEnokiWallets
+                googleClientId={googleClientId}
+                enokiApiKey={enokiApiKey}
+                redirectUrl={redirectUrl}
+              />
+              <WalrusClientProvider>
+                <WalletProvider autoConnect preferredWallets={preferredWallets}>
+                  <SignInWithWalletDialog />
+                  {children}
+                </WalletProvider>
+              </WalrusClientProvider>
+            </SuiClientProvider>
+          </CurrentUserProvider>
         </NextUIProvider>
       </QueryClientProvider>
     </SessionProvider>

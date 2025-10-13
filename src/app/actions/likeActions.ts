@@ -3,12 +3,15 @@
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from './authActions';
 import { pusherServer } from '@/lib/pusher';
+import { MatchEventHandler } from '@/services/matchEventHandler';
 
 export async function toggleLikeMember(targetUserId: string, isLiked: boolean) {
     try {
         const userId = await getAuthUserId();
+        const matchEventHandler = new MatchEventHandler();
 
         if (isLiked) {
+            // Removing a like
             await prisma.like.delete({
                 where: {
                     sourceUserId_targetUserId: {
@@ -16,8 +19,12 @@ export async function toggleLikeMember(targetUserId: string, isLiked: boolean) {
                         targetUserId
                     }
                 }
-            })
+            });
+
+            // Handle potential match deletion
+            await matchEventHandler.handleLikeRemoved(userId, targetUserId);
         } else {
+            // Adding a like
             const like = await prisma.like.create({
                 data: {
                     sourceUserId: userId,
@@ -34,11 +41,45 @@ export async function toggleLikeMember(targetUserId: string, isLiked: boolean) {
                 }
             });
 
+            // Send notification
             await pusherServer.trigger(`private-${targetUserId}`, 'like:new', {
                 name: like.sourceMember.name,
                 image: like.sourceMember.image,
                 userId: like.sourceMember.userId
-            })
+            });
+
+            // Check for mutual match and handle avatar access
+            const isMutualMatch = await matchEventHandler.detectAndHandleMutualMatch(userId, targetUserId);
+
+            if (isMutualMatch) {
+                // Send match notification
+                await pusherServer.trigger(`private-${targetUserId}`, 'match:new', {
+                    name: like.sourceMember.name,
+                    image: like.sourceMember.image,
+                    userId: like.sourceMember.userId,
+                    message: 'You have a new match!'
+                });
+
+                await pusherServer.trigger(`private-${userId}`, 'match:new', {
+                    userId: targetUserId,
+                    message: 'You have a new match!'
+                });
+
+                // ✅ Trigger avatar refresh for both users
+                // This tells clients to refetch avatars to show private (original) images
+                console.log('🔄 Triggering avatar refresh for matched users:', { userId, targetUserId });
+
+                await Promise.allSettled([
+                    pusherServer.trigger(`private-${targetUserId}`, 'avatar:refresh', {
+                        userId: userId, // The user whose avatar should be refreshed
+                        reason: 'match'
+                    }),
+                    pusherServer.trigger(`private-${userId}`, 'avatar:refresh', {
+                        userId: targetUserId, // The user whose avatar should be refreshed
+                        reason: 'match'
+                    })
+                ]);
+            }
         }
 
     } catch (error) {

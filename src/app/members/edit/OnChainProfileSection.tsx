@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ interface Props {
 
 export default function OnChainProfileSection({ member, hasOnChainProfile, walletAddress: dbWalletAddress }: Props) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
@@ -30,6 +31,17 @@ export default function OnChainProfileSection({ member, hasOnChainProfile, walle
 
   const [isCreatingOnChain, setIsCreatingOnChain] = useState(false);
   const [onChainProfileCreated, setOnChainProfileCreated] = useState(hasOnChainProfile);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg h-20"></div>
+    );
+  }
 
   const contractConfigured = isContractConfigured();
 

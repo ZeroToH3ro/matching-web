@@ -85,11 +85,13 @@ export default function ChatFormWithBlockchain({ chatRoomId, chatAllowlistId }: 
       });
 
       // 2. Encrypt message with proper namespace
-      // Seal Protocol server object IDs (must match test-contract page)
-      const SERVER_OBJECT_IDS = [
-        "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
-        "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
-      ];
+      // Seal Protocol server object IDs from environment
+      const SERVER_OBJECT_IDS = process.env.NEXT_PUBLIC_SEAL_SERVER_IDS
+        ? process.env.NEXT_PUBLIC_SEAL_SERVER_IDS.split(',').map(id => id.trim())
+        : [
+            "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+            "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+          ];
 
       const sealClient = new SealClient({
         suiClient: client,
@@ -125,14 +127,21 @@ export default function ChatFormWithBlockchain({ chatRoomId, chatAllowlistId }: 
       });
 
       // 3. Get chat room object to find registry IDs
+      console.log("[ChatForm] Sending to ChatRoom ID:", chatRoomId);
+      console.log("[ChatForm] Using Package ID:", PACKAGE_ID);
+      console.log("[ChatForm] Registry IDs:", CONTRACT_IDS);
+
       const chatRoomObj = await client.getObject({
         id: chatRoomId,
-        options: { showContent: true },
+        options: { showContent: true, showType: true },
       });
 
       if (!chatRoomObj.data?.content || chatRoomObj.data.content.dataType !== "moveObject") {
         throw new Error("Invalid chat room object");
       }
+
+      console.log("[ChatForm] ChatRoom type:", chatRoomObj.data.type);
+      console.log("[ChatForm] ChatRoom content:", chatRoomObj.data.content);
 
       // 4. Build and execute transaction
       const tx = new Transaction();

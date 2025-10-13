@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { GiSelfLove } from 'react-icons/gi'
 import NavLink from './NavLink'
 import UserMenu from './UserMenu'
@@ -23,21 +23,21 @@ interface Props {
 
 export default function TopNavClient({ initialUserInfo, initialRole }: Props) {
   const { data: session, status } = useSession()
-  const { isAuthenticated } = useAuthStore()
-  const [userInfo, setUserInfo] = useState<UserInfo>(initialUserInfo)
+  const { isAuthenticated, userInfo, setUserInfo, clearAuth } = useAuthStore()
 
   useEffect(() => {
     console.log('TopNavClient session status:', status, 'user:', session?.user)
-    // Update userInfo when session changes
+    // Update userInfo in store when session changes
     if (status === 'authenticated' && session?.user) {
       setUserInfo({
         name: session.user.name || null,
         image: session.user.image || null,
+        avatarUrl: null, // Will be fetched by UserMenu
       })
     } else if (status === 'unauthenticated') {
-      setUserInfo(null)
+      clearAuth()
     }
-  }, [session, status])
+  }, [session, status, setUserInfo, clearAuth])
 
   const memberLinks = [
     { href: '/members', label: 'Matches' },
@@ -96,7 +96,7 @@ export default function TopNavClient({ initialUserInfo, initialRole }: Props) {
             {isLoggedIn && userInfo ? (
               <UserMenu userInfo={userInfo} />
             ) : (
-              <ConnectWalletButton />
+              <></>
             )}
           </div>
         </div>

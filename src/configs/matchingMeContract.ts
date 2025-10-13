@@ -10,7 +10,7 @@ const DEFAULT_CLOCK_OBJECT_ID = '0x6';
 export const matchingMeContractConfig: MatchingMeContractConfig = {
   packageId: process.env.NEXT_PUBLIC_PACKAGE_ID || '',
   moduleName: process.env.NEXT_PUBLIC_MATCHING_ME_MODULE_NAME || 'core',
-  profileRegistryId: process.env.NEXT_PUBLIC_PROFILE_REGISTRY_ID || process.env.NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID || '',
+  profileRegistryId: process.env.NEXT_PUBLIC_PROFILE_REGISTRY_ID || process.env.NEXT_PUBLIC_PROFILE_REGISTRY_ID || '',
   clockObjectId: process.env.NEXT_PUBLIC_SUI_CLOCK_OBJECT_ID || DEFAULT_CLOCK_OBJECT_ID,
 };
 
@@ -29,11 +29,11 @@ export function assertMatchingMeConfig(): void {
   // TODO: Re-enable validation in production
 
   if (!matchingMeContractConfig.packageId) {
-    console.warn('Missing NEXT_PUBLIC_MATCHING_ME_PACKAGE_ID - smart contract features disabled');
+    console.warn('Missing NEXT_PUBLIC_PACKAGE_ID - smart contract features disabled');
   }
 
   if (!matchingMeContractConfig.profileRegistryId) {
-    console.warn('Missing NEXT_PUBLIC_MATCHING_ME_REGISTRY_ID - smart contract features disabled');
+    console.warn('Missing NEXT_PUBLIC_PROFILE_REGISTRY_ID - smart contract features disabled');
   }
 
   // Disabled: Allow app to run without contract config

@@ -2,7 +2,7 @@ import type { WalrusClientConfig } from '@mysten/walrus'
 
 export const walrusConfig: Pick<
   WalrusClientConfig,
-  'uploadRelay' | 'storageNodeClientOptions' | 'wasmUrl'
+  'uploadRelay' | 'storageNodeClientOptions'
 > = {
   uploadRelay: {
     timeout: 600_000,

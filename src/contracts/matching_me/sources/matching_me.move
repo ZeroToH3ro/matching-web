@@ -23,6 +23,7 @@ module matching_me::core {
     const EInvalidSubscription: u64 = 8;
     const ESubscriptionExpired: u64 = 10;
     const EInvalidVisibilityLevel: u64 = 12;
+    const EInactive: u64 = 13;
 
     // ===== Constants =====
 
@@ -45,6 +46,11 @@ module matching_me::core {
     const TIER_BASIC: u8 = 1;
     const TIER_PREMIUM: u8 = 2;
     const TIER_PLATINUM: u8 = 3;
+
+    // Media Content Types
+    const CONTENT_TYPE_IMAGE: u8 = 0;
+    const CONTENT_TYPE_AVATAR: u8 = 1;
+    const CONTENT_TYPE_VIDEO: u8 = 2;
 
     // ===== Optimized Structs =====
 
@@ -788,6 +794,99 @@ module matching_me::core {
         media
     }
 
+    /// Upload private avatar with Seal encryption - only visible to matched users
+    public fun upload_private_avatar(
+        registry: &mut MediaRegistry,
+        profile: &mut UserProfile,
+        walrus_blob_id: String,
+        seal_policy_id: String,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): MediaContent {
+        assert!(profile.owner == tx_context::sender(ctx), EUnauthorized);
+
+        let current_time = clock::timestamp_ms(clock);
+        let media_uid = object::new(ctx);
+        let media_id = object::uid_to_inner(&media_uid);
+
+        // Create private avatar media with Seal encryption
+        let media = MediaContent {
+            id: media_uid,
+            owner: profile.owner,
+            walrus_blob_id,
+            content_type: 1, // Avatar content type
+            visibility_level: VISIBILITY_MATCHES_ONLY, // Only matches can see
+            seal_policy_id: option::some(seal_policy_id),
+            access_permissions: vector::empty(),
+            moderation_status: 0,
+            ai_safety_score: 0,
+            caption: string::utf8(b"Private Avatar"),
+            tags: vector::singleton(string::utf8(b"avatar")),
+            uploaded_at: current_time,
+            expires_at: option::none(),
+            view_count: 0,
+        };
+
+        profile.media_count = profile.media_count + 1;
+        add_media_to_registry(registry, profile.owner, media_id);
+
+        event::emit(MediaUploaded {
+            media_id,
+            owner: profile.owner,
+            content_type: 1, // Avatar
+            timestamp: current_time,
+        });
+
+        media
+    }
+
+    /// Grant avatar access to a matched user
+    public fun grant_avatar_access(
+        avatar_media: &mut MediaContent,
+        profile: &UserProfile,
+        match_obj: &Match,
+        target_user: address,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(profile.owner == sender, EUnauthorized);
+        assert!(avatar_media.owner == sender, EUnauthorized);
+        
+        // Verify this is a valid match
+        let (user_a, user_b) = get_match_users(match_obj);
+        assert!(
+            (sender == user_a && target_user == user_b) || 
+            (sender == user_b && target_user == user_a),
+            EUnauthorized
+        );
+        
+        // Verify match is active
+        assert!(is_match_active(match_obj), EInactive);
+        
+        // Add target user to access permissions if not already present
+        if (!vector::contains(&avatar_media.access_permissions, &target_user)) {
+            vector::push_back(&mut avatar_media.access_permissions, target_user);
+        };
+    }
+
+    /// Revoke avatar access from a user
+    public fun revoke_avatar_access(
+        avatar_media: &mut MediaContent,
+        profile: &UserProfile,
+        target_user: address,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(profile.owner == sender, EUnauthorized);
+        assert!(avatar_media.owner == sender, EUnauthorized);
+        
+        // Find and remove target user from access permissions
+        let (found, index) = vector::index_of(&avatar_media.access_permissions, &target_user);
+        if (found) {
+            vector::remove(&mut avatar_media.access_permissions, index);
+        };
+    }
+
     /// Increment media view count
     public fun increment_media_views(media: &mut MediaContent) {
         media.view_count = media.view_count + 1;
@@ -1010,16 +1109,16 @@ module matching_me::core {
         media.content_type
     }
 
-    public fun get_media_visibility(media: &MediaContent): u8 {
+    public fun get_media_visibility_level(media: &MediaContent): u8 {
         media.visibility_level
     }
 
-    public fun get_media_moderation_status(media: &MediaContent): u8 {
-        media.moderation_status
+    public fun get_media_seal_policy_id(media: &MediaContent): Option<String> {
+        media.seal_policy_id
     }
 
-    public fun get_media_ai_safety_score(media: &MediaContent): u64 {
-        media.ai_safety_score
+    public fun get_media_access_permissions(media: &MediaContent): &vector<address> {
+        &media.access_permissions
     }
 
     public fun get_media_caption(media: &MediaContent): String {
@@ -1036,6 +1135,36 @@ module matching_me::core {
 
     public fun get_media_view_count(media: &MediaContent): u64 {
         media.view_count
+    }
+
+    public fun is_avatar_content(media: &MediaContent): bool {
+        media.content_type == CONTENT_TYPE_AVATAR
+    }
+
+    public fun can_access_avatar(media: &MediaContent, viewer: address): bool {
+        // Owner can always access their own avatar
+        if (media.owner == viewer) {
+            return true
+        };
+        
+        // Check if viewer is in access permissions (i.e., matched users)
+        vector::contains(&media.access_permissions, &viewer)
+    }
+
+    public fun has_seal_encryption(media: &MediaContent): bool {
+        option::is_some(&media.seal_policy_id)
+    }
+
+    public fun get_media_visibility(media: &MediaContent): u8 {
+        media.visibility_level
+    }
+
+    public fun get_media_moderation_status(media: &MediaContent): u8 {
+        media.moderation_status
+    }
+
+    public fun get_media_ai_safety_score(media: &MediaContent): u64 {
+        media.ai_safety_score
     }
 
     public fun is_media_expired(media: &MediaContent, current_time: u64): bool {
