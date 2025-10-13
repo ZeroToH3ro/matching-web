@@ -1,4 +1,3 @@
-import { WalrusClient } from '@mysten/walrus';
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import type { 
   StorageProvider, 
@@ -11,7 +10,7 @@ import type {
 
 export class WalrusStorageProvider implements StorageProvider {
   public readonly name = 'walrus';
-  private walrusClient: WalrusClient;
+  private walrusClient: any = null;
   private suiClient: SuiClient;
   private config: WalrusConfig;
 
@@ -22,16 +21,36 @@ export class WalrusStorageProvider implements StorageProvider {
     this.suiClient = new SuiClient({
       url: getFullnodeUrl(config.suiNetwork)
     });
+  }
 
-    // Initialize Walrus client
+  private async initializeWalrusClient() {
+    if (this.walrusClient) return this.walrusClient;
+    
+    // Only import and initialize on client side
+    if (typeof window === 'undefined') {
+      throw new Error('Walrus client can only be used on the client side');
+    }
+
+    const { WalrusClient } = await import('@mysten/walrus');
+    
     this.walrusClient = new WalrusClient({
-      network: config.suiNetwork === 'devnet' ? 'testnet' : config.suiNetwork,
+      network: this.config.suiNetwork === 'devnet' ? 'testnet' : this.config.suiNetwork,
       suiClient: this.suiClient
     });
+
+    return this.walrusClient;
   }
 
   async upload(file: File | Buffer, options: UploadOptions = {}): Promise<UploadResult> {
     try {
+      // Ensure we're on the client side
+      if (typeof window === 'undefined') {
+        throw new Error('Walrus uploads can only be performed on the client side');
+      }
+
+      // Initialize Walrus client if needed
+      await this.initializeWalrusClient();
+
       // Convert File to Uint8Array if needed
       let data: Uint8Array;
       let size: number;
@@ -94,7 +113,7 @@ export class WalrusStorageProvider implements StorageProvider {
 
   async download(id: string, options: DownloadOptions = {}): Promise<DownloadResult> {
     try {
-      // Read blob from Walrus using HTTP API (based on Seal example pattern)
+      // Downloads can work on both client and server using HTTP API
       const aggregatorUrl = this.getAggregatorUrl();
       const response = await fetch(`${aggregatorUrl}/v1/${id}`, {
         method: 'GET'

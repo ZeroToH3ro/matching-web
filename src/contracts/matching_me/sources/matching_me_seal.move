@@ -10,7 +10,7 @@ module matching_me::seal_policies {
     use sui::bcs;
     use sui::table::{Self, Table};
     
-    use matching_me::core::{UserProfile, Match, Subscription, get_profile_owner, get_match_users, is_subscription_active, get_subscription_tier, get_match_id};
+    use matching_me::core::{UserProfile, Match, Subscription, get_profile_owner, get_match_users, is_subscription_active, get_subscription_tier, get_match_id, is_match_active};
     use matching_me::chat::{ChatRoom, get_chat_participants, get_chat_id};
 
     // ===== Error Codes =====
@@ -28,6 +28,7 @@ module matching_me::seal_policies {
     const TYPE_MATCH: u8 = 0x03;
     const TYPE_TIMELOCK: u8 = 0x04;
     const TYPE_CUSTOM: u8 = 0x05;
+    const TYPE_AVATAR: u8 = 0x06;
 
     // ===== Structs =====
 
@@ -39,6 +40,7 @@ module matching_me::seal_policies {
         match_allowlists: Table<ID, ID>,       // match_id -> allowlist_id
         custom_allowlists: Table<address, vector<ID>>,  // creator -> allowlist_ids
         timelocks: Table<ID, ID>,              // content_id -> timelock_id
+        avatar_allowlists: Table<address, ID>, // owner -> avatar_allowlist_id
         total_allowlists: u64,
     }
 
@@ -92,6 +94,16 @@ module matching_me::seal_policies {
         created_at: u64,
         expires_at: Option<u64>,
         max_addresses: Option<u64>,
+    }
+
+    /// Avatar Allowlist - Controls who can decrypt private avatars (matched users only)
+    public struct AvatarAllowlist has key, store {
+        id: UID,
+        owner: address,
+        matched_users: VecSet<address>,
+        active: bool,
+        created_at: u64,
+        expires_at: Option<u64>,
     }
 
     // ===== Events =====
@@ -296,6 +308,33 @@ module matching_me::seal_policies {
         vec_set::contains(&allowlist.allowed_addresses, &caller)
     }
 
+    /// Check if user can access private avatar (matched users only)
+    public fun approve_avatar(
+        caller: address,
+        allowlist: &AvatarAllowlist,
+        current_time: u64
+    ): bool {
+        if (!allowlist.active) {
+            return false
+        };
+
+        // Check expiry
+        if (option::is_some(&allowlist.expires_at)) {
+            let expires = *option::borrow(&allowlist.expires_at);
+            if (current_time > expires) {
+                return false
+            };
+        };
+
+        // Owner can always access their own avatar
+        if (caller == allowlist.owner) {
+            return true
+        };
+
+        // Check if caller is in matched users list
+        vec_set::contains(&allowlist.matched_users, &caller)
+    }
+
     // ===== Main Seal Approve Entry Function =====
     // Single entry point for Seal Protocol - auto-detects allowlist type from ID prefix
     // ID format: [type_byte][object_id_bytes][nonce]
@@ -416,6 +455,32 @@ module matching_me::seal_policies {
         event::emit(AccessGranted {
             id_bytes: id,
             allowlist_type: TYPE_CUSTOM,
+            user: caller,
+            timestamp: current_time,
+        });
+    }
+
+    /// Seal approval for Avatar allowlists
+    entry fun seal_approve_avatar(
+        id: vector<u8>,
+        avatar_allowlist: &AvatarAllowlist,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        let caller = tx_context::sender(ctx);
+        let id_type = extract_type(&id);
+        let current_time = sui::clock::timestamp_ms(clock);
+
+        assert!(id_type == TYPE_AVATAR, EInvalidId);
+
+        let namespace = build_namespace(TYPE_AVATAR, get_avatar_allowlist_id(avatar_allowlist));
+        assert!(is_prefix(namespace, id), EInvalidId);
+
+        assert!(approve_avatar(caller, avatar_allowlist, current_time), ENoAccess);
+
+        event::emit(AccessGranted {
+            id_bytes: id,
+            allowlist_type: TYPE_AVATAR,
             user: caller,
             timestamp: current_time,
         });
@@ -594,6 +659,19 @@ module matching_me::seal_policies {
         allowlist
     }
 
+    /// Entry function to create and share MatchAllowlist (so both users can access it)
+    public entry fun create_match_allowlist_shared(
+        registry: &mut AllowlistRegistry,
+        match_obj: &Match,
+        profile: &UserProfile,
+        expires_at: Option<u64>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let allowlist = create_match_allowlist(registry, match_obj, profile, expires_at, clock, ctx);
+        transfer::share_object(allowlist);
+    }
+
     /// Create time lock
     public fun create_timelock(
         unlock_time: u64,
@@ -669,6 +747,59 @@ module matching_me::seal_policies {
         allowlist
     }
 
+    /// Create avatar allowlist for private avatar access control
+    public fun create_avatar_allowlist(
+        registry: &mut AllowlistRegistry,
+        profile: &UserProfile,
+        expires_at: Option<u64>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): AvatarAllowlist {
+        let sender = tx_context::sender(ctx);
+        assert!(get_profile_owner(profile) == sender, ENoAccess);
+
+        // Check if allowlist already exists for this user
+        assert!(!table::contains(&registry.avatar_allowlists, sender), ENoAccess);
+
+        let current_time = sui::clock::timestamp_ms(clock);
+        let allowlist_uid = object::new(ctx);
+        let allowlist_id = object::uid_to_inner(&allowlist_uid);
+
+        let allowlist = AvatarAllowlist {
+            id: allowlist_uid,
+            owner: sender,
+            matched_users: vec_set::empty<address>(),
+            active: true,
+            created_at: current_time,
+            expires_at,
+        };
+
+        // Add to registry
+        table::add(&mut registry.avatar_allowlists, sender, allowlist_id);
+        registry.total_allowlists = registry.total_allowlists + 1;
+
+        event::emit(AllowlistCreated {
+            allowlist_id,
+            allowlist_type: TYPE_AVATAR,
+            creator: sender,
+            timestamp: current_time,
+        });
+
+        allowlist
+    }
+
+    /// Entry function to create and share AvatarAllowlist
+    public entry fun create_avatar_allowlist_shared(
+        registry: &mut AllowlistRegistry,
+        profile: &UserProfile,
+        expires_at: Option<u64>,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let allowlist = create_avatar_allowlist(registry, profile, expires_at, clock, ctx);
+        transfer::share_object(allowlist);
+    }
+
     // ===== Namespace Helper Functions =====
 
     /// Get namespace for ChatAllowlist with type prefix
@@ -694,6 +825,11 @@ module matching_me::seal_policies {
     /// Get namespace for CustomAllowlist with type prefix
     public fun custom_namespace(allowlist: &CustomAllowlist): vector<u8> {
         build_namespace(TYPE_CUSTOM, get_custom_allowlist_id(allowlist))
+    }
+
+    /// Get namespace for AvatarAllowlist with type prefix
+    public fun avatar_namespace(allowlist: &AvatarAllowlist): vector<u8> {
+        build_namespace(TYPE_AVATAR, get_avatar_allowlist_id(allowlist))
     }
 
     // ===== Update Functions =====
@@ -863,6 +999,67 @@ module matching_me::seal_policies {
         });
     }
 
+    /// Add matched user to avatar allowlist
+    public fun add_matched_user_to_avatar(
+        allowlist: &mut AvatarAllowlist,
+        profile: &UserProfile,
+        match_obj: &Match,
+        matched_user: address,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(get_profile_owner(profile) == sender, ENoAccess);
+        assert!(allowlist.owner == sender, ENoAccess);
+        
+        // Verify this is a valid match
+        let (user_a, user_b) = get_match_users(match_obj);
+        assert!(
+            (sender == user_a && matched_user == user_b) || 
+            (sender == user_b && matched_user == user_a),
+            ENoAccess
+        );
+        
+        // Verify match is active
+        assert!(is_match_active(match_obj), EInactive);
+        
+        // Add matched user to allowlist
+        vec_set::insert(&mut allowlist.matched_users, matched_user);
+    }
+
+    /// Remove matched user from avatar allowlist
+    public fun remove_matched_user_from_avatar(
+        allowlist: &mut AvatarAllowlist,
+        profile: &UserProfile,
+        matched_user: address,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(get_profile_owner(profile) == sender, ENoAccess);
+        assert!(allowlist.owner == sender, ENoAccess);
+        
+        vec_set::remove(&mut allowlist.matched_users, &matched_user);
+    }
+
+    /// Deactivate avatar allowlist
+    public fun deactivate_avatar_allowlist(
+        allowlist: &mut AvatarAllowlist,
+        profile: &UserProfile,
+        clock: &Clock,
+        ctx: &TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(get_profile_owner(profile) == sender, ENoAccess);
+        assert!(allowlist.owner == sender, ENoAccess);
+        allowlist.active = false;
+
+        event::emit(AllowlistDeactivated {
+            allowlist_id: object::uid_to_inner(&allowlist.id),
+            allowlist_type: TYPE_AVATAR,
+            deactivated_by: sender,
+            timestamp: sui::clock::timestamp_ms(clock),
+        });
+    }
+
     /// Cleanup expired allowlists (admin or automated job)
     public fun cleanup_expired_chat_allowlist(
         allowlist: &mut ChatAllowlist,
@@ -944,6 +1141,26 @@ module matching_me::seal_policies {
         false
     }
 
+    public fun cleanup_expired_avatar_allowlist(
+        allowlist: &mut AvatarAllowlist,
+        clock: &Clock
+    ): bool {
+        if (option::is_some(&allowlist.expires_at)) {
+            let expires = *option::borrow(&allowlist.expires_at);
+            let current_time = sui::clock::timestamp_ms(clock);
+            if (current_time > expires) {
+                allowlist.active = false;
+                event::emit(AllowlistExpired {
+                    allowlist_id: object::uid_to_inner(&allowlist.id),
+                    allowlist_type: TYPE_AVATAR,
+                    timestamp: current_time,
+                });
+                return true
+            };
+        };
+        false
+    }
+
     // ===== View Functions =====
 
     // Registry views
@@ -983,11 +1200,20 @@ module matching_me::seal_policies {
         }
     }
 
+    public fun get_avatar_allowlist_id_by_owner(registry: &AllowlistRegistry, owner: address): Option<ID> {
+        if (table::contains(&registry.avatar_allowlists, owner)) {
+            option::some(*table::borrow(&registry.avatar_allowlists, owner))
+        } else {
+            option::none()
+        }
+    }
+
     public fun get_type_chat(): u8 { TYPE_CHAT }
     public fun get_type_subscription(): u8 { TYPE_SUBSCRIPTION }
     public fun get_type_match(): u8 { TYPE_MATCH }
     public fun get_type_timelock(): u8 { TYPE_TIMELOCK }
     public fun get_type_custom(): u8 { TYPE_CUSTOM }
+    public fun get_type_avatar(): u8 { TYPE_AVATAR }
 
     public fun is_chat_allowlist_active(allowlist: &ChatAllowlist): bool {
         allowlist.active
@@ -1027,6 +1253,30 @@ module matching_me::seal_policies {
 
     public fun get_custom_allowlist_id(allowlist: &CustomAllowlist): ID {
         object::uid_to_inner(&allowlist.id)
+    }
+
+    public fun get_avatar_allowlist_id(allowlist: &AvatarAllowlist): ID {
+        object::uid_to_inner(&allowlist.id)
+    }
+
+    public fun get_avatar_allowlist_owner(allowlist: &AvatarAllowlist): address {
+        allowlist.owner
+    }
+
+    public fun get_avatar_allowlist_matched_users(allowlist: &AvatarAllowlist): &VecSet<address> {
+        &allowlist.matched_users
+    }
+
+    public fun is_avatar_allowlist_active(allowlist: &AvatarAllowlist): bool {
+        allowlist.active
+    }
+
+    public fun get_avatar_allowlist_created_at(allowlist: &AvatarAllowlist): u64 {
+        allowlist.created_at
+    }
+
+    public fun avatar_allowlist_contains_user(allowlist: &AvatarAllowlist, user: address): bool {
+        vec_set::contains(&allowlist.matched_users, &user)
     }
 
     public fun is_chat_allowlist_expired(allowlist: &ChatAllowlist, current_time: u64): bool {
@@ -1073,6 +1323,8 @@ module matching_me::seal_policies {
         vec_set::length(&allowlist.allowed_addresses)
     }
 
+
+
     // ===== Initialize Module =====
 
     fun init(ctx: &mut TxContext) {
@@ -1084,6 +1336,7 @@ module matching_me::seal_policies {
             match_allowlists: table::new(ctx),
             custom_allowlists: table::new(ctx),
             timelocks: table::new(ctx),
+            avatar_allowlists: table::new(ctx),
             total_allowlists: 0,
         });
     }

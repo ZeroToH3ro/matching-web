@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button, Card, CardBody } from '@nextui-org/react';
 import { Sparkles } from 'lucide-react';
-import ErrorBoundary from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import ImageUploader from '@/components/ImageUploader';
 import LoadingState from '@/components/LoadingState';
 import dynamic from 'next/dynamic';

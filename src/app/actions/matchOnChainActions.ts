@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from './authActions';
+import { MatchEventHandler } from '@/services/matchEventHandler';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import {
   getMatchIdBetweenUsers,
@@ -67,6 +68,8 @@ export async function saveMatchOnChain(
       },
     });
 
+    const matchEventHandler = new MatchEventHandler();
+
     if (!existingLike) {
       // Create like in database
       await prisma.like.create({
@@ -75,10 +78,13 @@ export async function saveMatchOnChain(
           targetUserId: targetUser.id,
         },
       });
+
+      // Check for mutual match and handle avatar access
+      await matchEventHandler.detectAndHandleMutualMatch(userId, targetUser.id);
     }
 
-    // Store match metadata (you may need to create a new table for this)
-    // For now, we'll just return success
+    // Store match metadata and handle avatar access
+    await matchEventHandler.handleMatchCreated(userId, targetUser.id, input.matchId);
 
     return {
       status: 'success',
@@ -102,6 +108,9 @@ export async function markMatchActive(
   try {
     // Update match status in database if needed
     // This is a placeholder - you may want to create a Match table
+
+    // For now, we'll assume the match is already handled by the like system
+    console.log(`[MatchOnChain] Match ${input.matchId} marked as active`);
 
     return {
       status: 'success',

@@ -2,6 +2,7 @@ import React from "react";
 import { getMembers } from "../actions/memberActions";
 import MemberCard from "./MemberCard";
 import { fetchCurrentUserLikeIds } from "../actions/likeActions";
+import { getAuthUserId } from "../actions/authActions";
 import PaginationComponent from "@/components/PaginationComponent";
 import type { GetMemberParams } from "@/types";
 import EmptyState from "@/components/EmptyState";
@@ -16,6 +17,7 @@ export default async function MembersPage({
 
   const likeIds = await fetchCurrentUserLikeIds();
   const myProfileObjectId = await getUserProfileObjectId();
+  const currentUserId = await getAuthUserId();
 
   if (members.length === 0) return <EmptyState />;
 
@@ -46,6 +48,7 @@ export default async function MembersPage({
               member={member}
               likeIds={likeIds}
               myProfileObjectId={myProfileObjectId}
+              currentUserId={currentUserId}
             />
           </div>
         ))}

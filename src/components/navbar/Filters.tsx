@@ -22,7 +22,7 @@ export default function Filters() {
     selectAge,
     selectGender,
     selectOrder,
-    selectWithPhoto,
+
     filters,
     totalCount,
     isPending,
@@ -89,18 +89,7 @@ export default function Filters() {
             />
           </div>
 
-          {/* With Photo Switch */}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="with-photo"
-              defaultChecked
-              onCheckedChange={(checked) => selectWithPhoto(checked)}
-              className="data-[state=checked]:bg-primary"
-            />
-            <Label htmlFor="with-photo" className="text-sm font-medium cursor-pointer">
-              With photo
-            </Label>
-          </div>
+
 
           {/* Order By Select */}
           <div className="min-w-[180px]">
@@ -134,16 +123,7 @@ export default function Filters() {
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="with-photo-mobile"
-                defaultChecked
-                onCheckedChange={(checked) => selectWithPhoto(checked)}
-              />
-              <Label htmlFor="with-photo-mobile" className="text-sm">
-                Photo
-              </Label>
-            </div>
+
           </div>
 
           {/* Gender and Order Row */}

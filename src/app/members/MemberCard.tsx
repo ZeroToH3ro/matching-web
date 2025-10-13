@@ -2,14 +2,16 @@
 import LikeButton from "@/components/LikeButton";
 import LikeButtonWithBlockchain from "@/components/LikeButtonWithBlockchain";
 import PresenceDot from "@/components/PresenceDot";
+
 import { calculateAge } from "@/lib/util";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Member } from "@prisma/client";
 import Link from "next/link";
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { MapPin, Verified } from "lucide-react";
 import Image from "next/image";
+import { pusherClient } from "@/lib/pusher";
 
 type Props = {
   member: Member & {
@@ -20,13 +22,77 @@ type Props = {
   };
   likeIds: string[];
   myProfileObjectId?: string | null;
+  currentUserId?: string;
 };
 
-export default function MemberCard({ member, likeIds, myProfileObjectId }: Props) {
+export default function MemberCard({ member, likeIds, myProfileObjectId, currentUserId }: Props) {
   const hasLiked = likeIds.includes(member.userId);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(member.image); // Start with fallback
 
   // Use blockchain-enabled button if both users have on-chain profiles
   const useBlockchainLike = !!(myProfileObjectId && member.user?.walletAddress);
+
+  // Extract fetchAvatar as a callback so it can be reused
+  const fetchAvatar = useCallback(async () => {
+    try {
+      console.log(`🔍 [MemberCard] Fetching avatar for ${member.name}:`, {
+        targetUserId: member.userId,
+        viewerUserId: currentUserId,
+        hasCurrentUser: !!currentUserId
+      });
+
+      const { getAvatarForUser } = await import('@/app/actions/avatarActions');
+      const result = await getAvatarForUser(member.userId, currentUserId);
+
+      console.log(`📸 [MemberCard] Avatar result for ${member.name}:`, {
+        status: result.status,
+        type: result.data?.type,
+        isEncrypted: result.data?.isEncrypted,
+        hasAccess: result.data?.hasAccess,
+        url: result.data?.url?.substring(0, 50) + '...'
+      });
+
+      if (result.status === 'success' && result.data) {
+        setAvatarUrl(result.data.url);
+      } else {
+        // Fallback to member.image
+        console.warn(`⚠️ [MemberCard] Avatar fetch failed for ${member.name}, using fallback`);
+        setAvatarUrl(member.image);
+      }
+    } catch (error) {
+      console.error(`❌ [MemberCard] Failed to fetch avatar for ${member.name}:`, error);
+      setAvatarUrl(member.image);
+    }
+  }, [member.userId, currentUserId, member.image, member.name]);
+
+  // Fetch appropriate avatar based on match status on mount
+  useEffect(() => {
+    fetchAvatar();
+  }, [fetchAvatar]);
+
+  // ✅ Listen for real-time avatar refresh events when users match
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    console.log(`🔌 [MemberCard] Subscribing to avatar:refresh for user ${currentUserId}`);
+    const channel = pusherClient.subscribe(`private-${currentUserId}`);
+
+    channel.bind('avatar:refresh', (data: { userId: string; reason: string }) => {
+      console.log('🔄 [MemberCard] Avatar refresh event received:', data);
+
+      // Refetch avatar if this is the user whose avatar should be refreshed
+      if (data.userId === member.userId) {
+        console.log(`✅ [MemberCard] Refreshing avatar for ${member.name} due to ${data.reason}`);
+        fetchAvatar();
+      }
+    });
+
+    return () => {
+      console.log(`🔌 [MemberCard] Unsubscribing from avatar:refresh for user ${currentUserId}`);
+      channel.unbind('avatar:refresh');
+      pusherClient.unsubscribe(`private-${currentUserId}`);
+    };
+  }, [currentUserId, member.userId, fetchAvatar, member.name]);
 
   console.log("[MemberCard] Render:", {
     memberId: member.userId,
@@ -34,6 +100,7 @@ export default function MemberCard({ member, likeIds, myProfileObjectId }: Props
     useBlockchainLike,
     myProfileObjectId,
     memberWalletAddress: member.user?.walletAddress,
+    avatarUrl
   });
 
   const preventLinkAction = (e: React.MouseEvent) => {
@@ -47,12 +114,17 @@ export default function MemberCard({ member, likeIds, myProfileObjectId }: Props
         <CardContent className="p-0 relative">
           {/* Image Container with Overlay */}
           <div className="relative aspect-[3/4] overflow-hidden">
+            {/* Avatar with match-based display */}
             <Image
               alt={member.name}
               fill
-              src={member.image || "/images/user.png"}
+              src={avatarUrl || "/images/user.png"}
               className="object-cover transition-transform duration-700 group-hover:scale-110"
               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 16vw"
+              onError={() => {
+                console.log('Image load failed, falling back to placeholder');
+                setAvatarUrl("/images/user.png");
+              }}
             />
 
             {/* Gradient Overlay */}

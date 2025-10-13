@@ -1,6 +1,4 @@
-import { getMemberPhotosByUserId } from "@/app/actions/memberActions";
-import CardInnerWrapper from "@/components/CardInnerWrapper";
-import { Image } from "@nextui-org/react";
+import PhotoGalleryPage from "@/components/PhotoGalleryPage";
 import React from "react";
 import dynamic from "next/dynamic";
 
@@ -14,36 +12,10 @@ export default async function PhotosPage({
 }: {
   params: { userId: string };
 }) {
-  const photos = await getMemberPhotosByUserId(
-    params.userId
-  );
 
   return (
-    <div className="space-y-6">
-      {/* Blockchain Photos Section */}
-      <CardInnerWrapper
-        header="Blockchain Photos (Walrus + Seal)"
-        body={<MemberBlockchainPhotos walletAddress={params.userId} />}
-      />
-
-      {/* Traditional Database Photos Section */}
-      <CardInnerWrapper
-        header="Traditional Photos (Cloudinary)"
-        body={
-          <div className="grid grid-cols-5 gap-3">
-            {photos &&
-              photos.map((photo) => (
-                <div key={photo.id}>
-                  <Image
-                    src={photo.url}
-                    alt="Image of member"
-                    className="object-cover aspect-square"
-                  />
-                </div>
-              ))}
-          </div>
-        }
-      />
-    </div>
+    <PhotoGalleryPage
+      blockchainSection={<MemberBlockchainPhotos walletAddress={params.userId} />}
+    />
   );
 }

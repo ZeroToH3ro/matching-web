@@ -1,106 +1,52 @@
-"use client";
+'use client';
 
-import React, { Component, type ReactNode } from "react";
-import { Button } from "@nextui-org/react";
-import { FaExclamationTriangle, FaRedo } from "react-icons/fa";
+import React, { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-  errorInfo?: React.ErrorInfo;
-}
-
-interface ErrorBoundaryProps {
+interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
-export default class ErrorBoundary extends Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
-  constructor(props: ErrorBoundaryProps) {
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    // Update state so the next render will show the fallback UI
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log the error to an error reporting service
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
-    
-    // Call custom error handler if provided
-    this.props.onError?.(error, errorInfo);
-    
-    this.setState({
-      hasError: true,
-      error,
-      errorInfo,
-    });
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
-
-  handleReset = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
-  };
 
   render() {
     if (this.state.hasError) {
-      // Custom fallback UI if provided
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      // Default fallback UI
-      return (
-        <div className="flex flex-col items-center justify-center p-8 bg-danger-50 rounded-lg border border-danger-200">
-          <div className="flex items-center gap-3 mb-4">
-            <FaExclamationTriangle className="text-danger-500" size={24} />
-            <h2 className="text-lg font-semibold text-danger-800">
-              Something went wrong
-            </h2>
-          </div>
-          
-          <p className="text-danger-600 text-center mb-6 max-w-md">
-            We're sorry, but something unexpected happened. Please try refreshing 
-            the page or contact support if the problem persists.
-          </p>
-
-          <div className="flex gap-3">
-            <Button
-              color="danger"
-              variant="flat"
-              startContent={<FaRedo />}
-              onClick={this.handleReset}
+      return this.props.fallback || (
+        <div className="flex items-center justify-center p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="text-center">
+            <div className="text-red-600 dark:text-red-400 mb-2">
+              <svg className="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-sm text-red-600 dark:text-red-400">
+              Something went wrong loading this component
+            </p>
+            <button
+              onClick={() => this.setState({ hasError: false })}
+              className="mt-2 px-3 py-1 text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
             >
-              Try Again
-            </Button>
-            
-            <Button
-              color="danger"
-              variant="solid"
-              onClick={() => window.location.reload()}
-            >
-              Refresh Page
-            </Button>
+              Try again
+            </button>
           </div>
-
-          {/* Show error details in development */}
-          {process.env.NODE_ENV === "development" && this.state.error && (
-            <details className="mt-6 w-full max-w-2xl">
-              <summary className="cursor-pointer text-sm text-danger-700 font-medium mb-2">
-                Error Details (Development Only)
-              </summary>
-              <pre className="bg-danger-100 p-4 rounded text-xs text-danger-800 overflow-auto">
-                {this.state.error.toString()}
-                {this.state.errorInfo?.componentStack}
-              </pre>
-            </details>
-          )}
         </div>
       );
     }

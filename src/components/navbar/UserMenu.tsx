@@ -15,24 +15,76 @@ import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { User, Edit, LogOut, Wallet, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
+import { useAuthStore } from "@/hooks/useAuthStore";
 
 type Props = {
   userInfo: {
     name: string | null;
     image: string | null;
+    avatarUrl?: string | null;
   } | null;
 };
 
 export default function UserMenu({ userInfo }: Props) {
   const { mutate: disconnectWallet } = useDisconnectWallet();
   const currentAccount = useCurrentAccount();
+  const { data: session } = useSession();
+  const { setUserInfo } = useAuthStore();
   const [copied, setCopied] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(userInfo?.avatarUrl || null);
+
+  // Fetch user's avatar from avatar service
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      if (session?.user?.id) {
+        try {
+          // For current user, use avatar info API to get private avatar
+          const response = await fetch('/api/avatar/info');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data) {
+              // Prioritize private avatar for current user, fallback to public
+              const newAvatarUrl = data.data.privateUrl || data.data.publicUrl;
+              setAvatarUrl(newAvatarUrl);
+
+              // Update store with new avatar URL
+              setUserInfo({
+                name: userInfo?.name || null,
+                image: userInfo?.image || null,
+                avatarUrl: newAvatarUrl,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch avatar:', error);
+        }
+      }
+    };
+
+    // Only fetch if we don't have cached avatarUrl
+    if (!avatarUrl) {
+      fetchAvatar();
+    }
+
+    // Listen for avatar updates
+    const handleAvatarUpdate = () => {
+      fetchAvatar();
+    };
+
+    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+
+    return () => {
+      window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+    };
+  }, [session?.user?.id, avatarUrl, userInfo, setUserInfo]);
 
   // Debug log
   useEffect(() => {
     console.log('UserMenu - currentAccount:', currentAccount);
     console.log('UserMenu - wallet address:', currentAccount?.address);
-  }, [currentAccount]);
+    console.log('UserMenu - avatarUrl:', avatarUrl);
+  }, [currentAccount, avatarUrl]);
 
   const handleLogout = async () => {
     try {
@@ -76,7 +128,10 @@ export default function UserMenu({ userInfo }: Props) {
           )}
         >
           <Avatar className="h-10 w-10">
-            <AvatarImage src={userInfo?.image || undefined} alt={userInfo?.name || "User"} />
+            <AvatarImage 
+              src={avatarUrl || userInfo?.image || undefined} 
+              alt={userInfo?.name || "User"} 
+            />
             <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-semibold">
               {getInitials(userInfo?.name || null)}
             </AvatarFallback>

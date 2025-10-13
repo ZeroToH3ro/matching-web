@@ -11,13 +11,23 @@ import { fromHex } from "@mysten/sui/utils";
 import { toast } from "react-toastify";
 
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID!;
-const MEDIA_REGISTRY_ID = "0xd860be341dddb4ce09950e1b88a5264df84db0b9443932aab44c899f95ed6f73";
+const MEDIA_REGISTRY_ID = process.env.NEXT_PUBLIC_MEDIA_REGISTRY_ID || "0x5e376e64367c7f06907b4bfecf8f97b2d79a8e0c747630954858499e6ac72fc4";
 const AGGREGATOR_URL = "https://aggregator.walrus-testnet.walrus.space";
 
-const SERVER_OBJECT_IDS = [
-  "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
-  "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+// Multiple aggregators for fallback
+const AGGREGATOR_URLS = [
+  "/aggregator1/v1/blobs",
+  "/aggregator2/v1/blobs",
+  "/aggregator3/v1/blobs",
 ];
+
+// Parse Seal server IDs from env (comma-separated)
+const SERVER_OBJECT_IDS = process.env.NEXT_PUBLIC_SEAL_SERVER_IDS
+  ? process.env.NEXT_PUBLIC_SEAL_SERVER_IDS.split(',').map(id => id.trim())
+  : [
+      "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+      "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+    ];
 
 interface BlockchainMedia {
   id: string;
@@ -43,6 +53,8 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
   const [photos, setPhotos] = useState<BlockchainMedia[]>([]);
   const [loading, setLoading] = useState(true);
   const [decryptingId, setDecryptingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8); // Show 8 photos per page
 
   const cachedSessionKeyRef = useRef<SessionKey | null>(null);
   const sealClientRef = useRef<SealClient | null>(null);
@@ -152,7 +164,8 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
                   caption: mFields.caption || "",
                   createdAt,
                   sealPolicyId: mFields.seal_policy_id || undefined,
-                  url: `${AGGREGATOR_URL}/v1/${mFields.walrus_blob_id}`,
+                  // Use consistent URL format with AGGREGATOR_URLS
+                  url: `${AGGREGATOR_URLS[0]}/${mFields.walrus_blob_id}`,
                 };
 
                 mediaList.push(media);
@@ -171,15 +184,8 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
         console.log("[Gallery] Loaded", mediaList.length, "photos");
         setPhotos(mediaList);
 
-        // Auto-decrypt all photos with seal policy
-        const photosToDecrypt = mediaList.filter(p => p.sealPolicyId);
-        if (photosToDecrypt.length > 0) {
-          console.log("[Gallery] Auto-decrypting", photosToDecrypt.length, "photos...");
-          // Decrypt in parallel (but not too many at once)
-          for (const photo of photosToDecrypt) {
-            decryptMediaSilent(photo);
-          }
-        }
+        // ✅ REMOVED: Auto-decrypt - let users manually decrypt to improve performance
+        // Photos will show "Decrypt" button instead of loading all automatically
       } catch (err: any) {
         if (err.message?.includes("not found") || err.message?.includes("Could not find")) {
           console.log("[Gallery] No media found for user (dynamic field not exists)");
@@ -197,6 +203,35 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
     }
   };
 
+  // Helper function to fetch blob with fallback
+  const fetchBlobWithFallback = async (blobId: string): Promise<ArrayBuffer> => {
+    let lastError: Error | null = null;
+
+    // Try each aggregator
+    for (const aggregatorUrl of AGGREGATOR_URLS) {
+      try {
+        const url = `${aggregatorUrl}/${blobId}`;
+        console.log(`[Gallery] Trying aggregator: ${url}`);
+
+        const response = await fetch(url);
+
+        if (response.ok) {
+          console.log(`[Gallery] ✅ Success with aggregator: ${aggregatorUrl}`);
+          return await response.arrayBuffer();
+        }
+
+        console.log(`[Gallery] ❌ Failed with ${aggregatorUrl}: ${response.status}`);
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      } catch (err: any) {
+        console.log(`[Gallery] ❌ Error with ${aggregatorUrl}:`, err.message);
+        lastError = err;
+      }
+    }
+
+    // All aggregators failed
+    throw new Error(`All aggregators failed. Last error: ${lastError?.message || 'Unknown'}`);
+  };
+
   // Decrypt media silently (for auto-decrypt)
   const decryptMediaSilent = async (photo: BlockchainMedia) => {
     if (!account || !photo.sealPolicyId) {
@@ -204,15 +239,8 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
     }
 
     try {
-      // Step 1: Download encrypted blob from Walrus
-      const aggregatorUrl = `/aggregator1/v1/blobs/${photo.blobId}`;
-      const blobResponse = await fetch(aggregatorUrl);
-
-      if (!blobResponse.ok) {
-        throw new Error(`Failed to download blob: ${blobResponse.statusText}`);
-      }
-
-      const encryptedBlob = await blobResponse.arrayBuffer();
+      // Step 1: Download encrypted blob from Walrus with fallback
+      const encryptedBlob = await fetchBlobWithFallback(photo.blobId);
       const encryptedBytes = new Uint8Array(encryptedBlob);
 
       // Step 2: Parse EncryptedObject to get encryption ID
@@ -318,8 +346,8 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
   const getVisibilityLabel = (level: number) => {
     switch (level) {
       case 0: return "Public";
-      case 1: return "Verified Only";
-      case 2: return "Matches Only";
+      case 1: return "All Matches";
+      case 2: return "Specific Match";
       default: return "Unknown";
     }
   };
@@ -357,6 +385,17 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
     );
   }
 
+  // Pagination logic
+  const totalPages = Math.ceil(photos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPhotos = photos.slice(startIndex, endIndex);
+
+  // Reset to page 1 if current page is out of bounds
+  if (currentPage > totalPages && totalPages > 0) {
+    setCurrentPage(1);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -370,19 +409,30 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {photos.map((photo) => (
+        {currentPhotos.map((photo) => (
           <Card key={photo.id} className="border-2 border-purple-100 overflow-hidden">
             <CardContent className="p-0">
               <div className="relative aspect-square bg-gradient-to-br from-purple-50 to-pink-50">
-                {photo.decryptedUrl ? (
-                  // Show decrypted image
+                {photo.decryptedUrl || photo.visibilityLevel === 0 || photo.visibilityLevel === 1 ? (
+                  // Show decrypted image OR public/all-matches image directly
                   <img
-                    src={photo.decryptedUrl}
-                    alt={photo.caption || "Decrypted photo"}
+                    src={photo.decryptedUrl || photo.url || `${AGGREGATOR_URLS[0]}/${photo.blobId}`}
+                    alt={photo.caption || "Photo"}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to other aggregators if first one fails
+                      const img = e.target as HTMLImageElement;
+                      const currentSrc = img.src;
+                      const aggregatorIndex = AGGREGATOR_URLS.findIndex(url => currentSrc.includes(url));
+
+                      if (aggregatorIndex < AGGREGATOR_URLS.length - 1) {
+                        const nextAggregator = AGGREGATOR_URLS[aggregatorIndex + 1];
+                        img.src = `${nextAggregator}/${photo.blobId}`;
+                      }
+                    }}
                   />
                 ) : (
-                  // Show encrypted placeholder
+                  // Show encrypted placeholder for private photos
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center p-4">
                       <Lock className="w-8 h-8 mx-auto mb-2 text-purple-400" />
@@ -441,12 +491,56 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
         ))}
       </div>
 
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> These photos are encrypted with Seal Protocol.
-          To view them, you'll need to implement decryption using your wallet's private key.
-        </p>
-      </div>
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex flex-col items-center gap-3">
+          {/* Photo count info */}
+          <div className="text-sm text-gray-600">
+            Showing {startIndex + 1}-{Math.min(endIndex, photos.length)} of {photos.length} photos
+          </div>
+
+          {/* Pagination buttons */}
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1"
+            >
+              Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <Button
+                  key={page}
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(page)}
+                  className={`px-3 py-1 ${
+                    currentPage === page
+                      ? "bg-purple-600 text-white hover:bg-purple-700"
+                      : ""
+                  }`}
+                >
+                  {page}
+                </Button>
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

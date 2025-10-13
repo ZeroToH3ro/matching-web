@@ -1,6 +1,102 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   productionBrowserSourceMaps: false,
+
+  // Configure external image domains
+  images: {
+    // Enable SVG support for avatar services like dicebear
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'aggregator.walrus-testnet.walrus.space',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'wal-aggregator-testnet.staketab.org',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'walrus-testnet-aggregator.redundex.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'walrus-testnet-aggregator.nodes.guru',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'aggregator.walrus.banansen.dev',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'walrus-testnet-aggregator.everstake.one',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
+
+  // Configure webpack to handle WASM files
+  webpack: (config, { isServer, dev }) => {
+    // Enable WebAssembly support
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+
+    // Handle WASM files
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'asset/resource',
+      generator: {
+        filename: isServer ? '../static/wasm/[name][ext]' : 'static/wasm/[name][ext]',
+      },
+    });
+
+    // Client-side fallbacks
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+      };
+    }
+
+    return config;
+  },
+
   async rewrites() {
     return [
       // Walrus publisher proxies

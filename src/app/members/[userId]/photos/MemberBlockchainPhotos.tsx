@@ -11,13 +11,23 @@ import { fromHex } from "@mysten/sui/utils";
 import { toast } from "react-toastify";
 
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID!;
-const MEDIA_REGISTRY_ID = "0xd860be341dddb4ce09950e1b88a5264df84db0b9443932aab44c899f95ed6f73";
+const MEDIA_REGISTRY_ID = process.env.NEXT_PUBLIC_MEDIA_REGISTRY_ID || "0x5e376e64367c7f06907b4bfecf8f97b2d79a8e0c747630954858499e6ac72fc4";
 const AGGREGATOR_URL = "https://aggregator.walrus-testnet.walrus.space";
 
-const SERVER_OBJECT_IDS = [
-  "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
-  "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+// Multiple aggregators for fallback
+const AGGREGATOR_URLS = [
+  "/aggregator1/v1/blobs",
+  "/aggregator2/v1/blobs",
+  "/aggregator3/v1/blobs",
 ];
+
+// Parse Seal server IDs from env (comma-separated)
+const SERVER_OBJECT_IDS = process.env.NEXT_PUBLIC_SEAL_SERVER_IDS
+  ? process.env.NEXT_PUBLIC_SEAL_SERVER_IDS.split(',').map(id => id.trim())
+  : [
+      "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+      "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+    ];
 
 interface BlockchainMedia {
   id: string;
@@ -43,6 +53,8 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
   const [photos, setPhotos] = useState<BlockchainMedia[]>([]);
   const [loading, setLoading] = useState(true);
   const [decryptingId, setDecryptingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8); // Show 8 photos per page
 
   const cachedSessionKeyRef = useRef<SessionKey | null>(null);
   const sealClientRef = useRef<SealClient | null>(null);
@@ -172,16 +184,8 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
         console.log("[MemberPhotos] Loaded", mediaList.length, "photos");
         setPhotos(mediaList);
 
-        // Auto-decrypt photos if user is logged in and has access
-        if (account?.address) {
-          const photosToDecrypt = mediaList.filter(p => p.sealPolicyId);
-          if (photosToDecrypt.length > 0) {
-            console.log("[MemberPhotos] Auto-decrypting", photosToDecrypt.length, "photos...");
-            for (const photo of photosToDecrypt) {
-              decryptMediaSilent(photo);
-            }
-          }
-        }
+        // ✅ REMOVED: Auto-decrypt - let users manually decrypt to improve performance
+        // Photos will show "Decrypt" button instead of loading all automatically
       } catch (err: any) {
         if (err.message?.includes("not found") || err.message?.includes("Could not find")) {
           console.log("[MemberPhotos] No media found for user");
@@ -199,22 +203,47 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
     }
   };
 
+  // Helper function to fetch blob with fallback
+  const fetchBlobWithFallback = async (blobId: string): Promise<ArrayBuffer> => {
+    let lastError: Error | null = null;
+
+    // Try each aggregator
+    for (const aggregatorUrl of AGGREGATOR_URLS) {
+      try {
+        const url = `${aggregatorUrl}/${blobId}`;
+        console.log(`[MemberPhotos] Trying aggregator: ${url}`);
+
+        const response = await fetch(url);
+
+        if (response.ok) {
+          console.log(`[MemberPhotos] ✅ Success with aggregator: ${aggregatorUrl}`);
+          return await response.arrayBuffer();
+        }
+
+        console.log(`[MemberPhotos] ❌ Failed with ${aggregatorUrl}: ${response.status}`);
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      } catch (err: any) {
+        console.log(`[MemberPhotos] ❌ Error with ${aggregatorUrl}:`, err.message);
+        lastError = err;
+      }
+    }
+
+    // All aggregators failed
+    throw new Error(`All aggregators failed. Last error: ${lastError?.message || 'Unknown'}`);
+  };
+
   // Decrypt media silently (for auto-decrypt)
-  const decryptMediaSilent = async (photo: BlockchainMedia) => {
+  const decryptMediaSilent = async (photo: BlockchainMedia, throwError = false) => {
     if (!account || !photo.sealPolicyId) {
+      if (throwError) {
+        throw new Error("Wallet not connected or no seal policy");
+      }
       return;
     }
 
     try {
-      // Step 1: Download encrypted blob from Walrus
-      const aggregatorUrl = `/aggregator1/v1/blobs/${photo.blobId}`;
-      const blobResponse = await fetch(aggregatorUrl);
-
-      if (!blobResponse.ok) {
-        throw new Error(`Failed to download blob: ${blobResponse.statusText}`);
-      }
-
-      const encryptedBlob = await blobResponse.arrayBuffer();
+      // Step 1: Download encrypted blob from Walrus with fallback
+      const encryptedBlob = await fetchBlobWithFallback(photo.blobId);
       const encryptedBytes = new Uint8Array(encryptedBlob);
 
       // Step 2: Parse EncryptedObject to get encryption ID
@@ -295,7 +324,11 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
       console.log("[MemberPhotos] Auto-decrypted photo:", photo.id);
     } catch (error: any) {
       console.error("[MemberPhotos] Auto-decrypt error for", photo.id, ":", error.message);
-      // Don't show error to user - they might not have access
+      // If throwError is true, re-throw for user feedback
+      if (throwError) {
+        throw error;
+      }
+      // Otherwise, don't show error to user - they might not have access
     }
   };
 
@@ -314,10 +347,22 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
     setDecryptingId(photo.id);
 
     try {
-      await decryptMediaSilent(photo);
-      toast.success("Photo decrypted successfully!");
+      // Call silent decrypt with throwError flag
+      await decryptMediaSilent(photo, true);
+
+      // Wait a bit for state update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Check if decryption actually succeeded
+      const updatedPhoto = photos.find(p => p.id === photo.id);
+      if (updatedPhoto?.decryptedUrl) {
+        toast.success("Photo decrypted successfully!");
+      } else {
+        throw new Error("Decryption failed - no decrypted URL");
+      }
     } catch (error: any) {
-      toast.error("You don't have access to view this photo");
+      console.error("[MemberPhotos] Decrypt error:", error);
+      toast.error(error.message || "You don't have access to view this photo");
     } finally {
       setDecryptingId(null);
     }
@@ -326,8 +371,8 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
   const getVisibilityLabel = (level: number) => {
     switch (level) {
       case 0: return "Public";
-      case 1: return "Verified Only";
-      case 2: return "Matches Only";
+      case 1: return "All Matches";
+      case 2: return "Specific Match";
       default: return "Unknown";
     }
   };
@@ -358,11 +403,66 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
     );
   }
 
+  // Filter photos to only show decrypted ones, public, or all-matches
+  const visiblePhotos = photos.filter(photo => {
+    // Show if already decrypted
+    if (photo.decryptedUrl) return true;
+
+    // Show if public (visibilityLevel === 0)
+    if (photo.visibilityLevel === 0) return true;
+
+    // Show if all-matches (visibilityLevel === 1) - accessible to all matched users
+    if (photo.visibilityLevel === 1) return true;
+
+    // Hide encrypted photos that haven't been decrypted (visibilityLevel === 2)
+    return false;
+  });
+
+  const encryptedCount = photos.filter(p => p.sealPolicyId && !p.decryptedUrl).length;
+
+  // Pagination logic
+  const totalPages = Math.ceil(visiblePhotos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPhotos = visiblePhotos.slice(startIndex, endIndex);
+
+  // Reset to page 1 if current page is out of bounds
+  if (currentPage > totalPages && totalPages > 0) {
+    setCurrentPage(1);
+  }
+
+  if (visiblePhotos.length === 0 && encryptedCount > 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Blockchain Photos ({photos.length})
+          </h3>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Lock className="w-4 h-4" />
+            <span>Encrypted with Seal Protocol</span>
+          </div>
+        </div>
+
+        <div className="p-8 text-center bg-purple-50 rounded-lg border-2 border-dashed border-purple-300">
+          <Lock className="w-16 h-16 mx-auto mb-4 text-purple-400" />
+          <h4 className="text-lg font-semibold text-purple-900 mb-2">
+            🔒 {encryptedCount} Private Photo{encryptedCount > 1 ? 's' : ''}
+          </h4>
+          <p className="text-purple-700">
+            This user has private photos that are only visible to matches.
+            {account ? ' Match with them to view their private photos!' : ' Connect your wallet and match to view.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">
-          Blockchain Photos ({photos.length})
+          Blockchain Photos ({visiblePhotos.length})
         </h3>
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Lock className="w-4 h-4" />
@@ -370,20 +470,40 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
         </div>
       </div>
 
+      {encryptedCount > 0 && account && (
+        <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+          <p className="text-sm text-purple-800">
+            <strong>🔒 {encryptedCount} encrypted photo{encryptedCount > 1 ? 's' : ''}</strong> -
+            Only visible to matches. Match with this user to view their private photos.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {photos.map((photo) => (
+        {currentPhotos.map((photo) => (
           <Card key={photo.id} className="border-2 border-purple-100 overflow-hidden">
             <CardContent className="p-0">
               <div className="relative aspect-square bg-gradient-to-br from-purple-50 to-pink-50">
-                {photo.decryptedUrl ? (
-                  // Show decrypted image
+                {photo.decryptedUrl || photo.visibilityLevel === 0 || photo.visibilityLevel === 1 ? (
+                  // Show decrypted image OR public/all-matches image directly
                   <img
-                    src={photo.decryptedUrl}
-                    alt={photo.caption || "Decrypted photo"}
+                    src={photo.decryptedUrl || photo.url || `${AGGREGATOR_URLS[0]}/${photo.blobId}`}
+                    alt={photo.caption || "Photo"}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to other aggregators if first one fails
+                      const img = e.target as HTMLImageElement;
+                      const currentSrc = img.src;
+                      const aggregatorIndex = AGGREGATOR_URLS.findIndex(url => currentSrc.includes(url));
+
+                      if (aggregatorIndex < AGGREGATOR_URLS.length - 1) {
+                        const nextAggregator = AGGREGATOR_URLS[aggregatorIndex + 1];
+                        img.src = `${nextAggregator}/${photo.blobId}`;
+                      }
+                    }}
                   />
                 ) : (
-                  // Show encrypted placeholder
+                  // Show encrypted placeholder for private photos
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center p-4">
                       <Lock className="w-8 h-8 mx-auto mb-2 text-purple-400" />
@@ -442,11 +562,47 @@ export default function MemberBlockchainPhotos({ walletAddress }: Props) {
         ))}
       </div>
 
-      {!account && photos.some(p => p.sealPolicyId) && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Note:</strong> Connect your wallet to view encrypted photos.
-          </p>
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <Button
+                key={page}
+                variant={currentPage === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(page)}
+                className={currentPage === page ? "bg-purple-600 text-white" : ""}
+              >
+                {page}
+              </Button>
+            ))}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
+      {/* Show photo count info */}
+      {visiblePhotos.length > 0 && (
+        <div className="text-center text-sm text-gray-500 mt-4">
+          Showing {startIndex + 1}-{Math.min(endIndex, visiblePhotos.length)} of {visiblePhotos.length} photos
         </div>
       )}
     </div>

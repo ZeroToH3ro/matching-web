@@ -1,6 +1,7 @@
 'use client'
 
 import { useNetworkConfig } from '@/configs/networkConfig'
+import { walrusConfig } from '@/configs/walrusConfig'
 import { useSuiClient } from '@mysten/dapp-kit'
 import type { SuiClient } from '@mysten/sui/client'
 import type { WalrusClient } from '@mysten/walrus'
@@ -17,13 +18,7 @@ async function createWalrusClient(
   return new WalrusClientClass({
     network,
     suiClient,
-    uploadRelay: {
-      timeout: 600000,
-      host: 'https://upload-relay.testnet.walrus.space',
-      sendTip: {
-        max: 1000,
-      },
-    },
+    ...walrusConfig,
   })
 }
 

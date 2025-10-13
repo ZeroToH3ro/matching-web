@@ -14,18 +14,27 @@ import { Upload, Loader2, Lock, Eye, Users } from "lucide-react";
 import { getMatchIdsByAddress } from "@/lib/blockchain/contractQueries";
 
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID!;
-const MEDIA_REGISTRY_ID = "0xd860be341dddb4ce09950e1b88a5264df84db0b9443932aab44c899f95ed6f73";
-const ALLOWLIST_REGISTRY_ID = "0xad9b4d1c670ac4032717c7b3d4136e6a3081fb0ea55f4c15ca88f8f5a624e399";
+const MEDIA_REGISTRY_ID = process.env.NEXT_PUBLIC_MEDIA_REGISTRY_ID || "0x5e376e64367c7f06907b4bfecf8f97b2d79a8e0c747630954858499e6ac72fc4";
+const ALLOWLIST_REGISTRY_ID = process.env.NEXT_PUBLIC_ALLOWLIST_REGISTRY_ID || "0xe3b413c048c48974d44c9355e631012b2a948d22dc69747c4de4224f93b9b225";
 
-const SERVER_OBJECT_IDS = [
-  "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
-  "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+// Parse Seal server IDs from env (comma-separated)
+const SERVER_OBJECT_IDS = process.env.NEXT_PUBLIC_SEAL_SERVER_IDS
+  ? process.env.NEXT_PUBLIC_SEAL_SERVER_IDS.split(',').map(id => id.trim())
+  : [
+      "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+      "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8"
+    ];
+
+// Multiple Walrus publishers for fallback
+const PUBLISHER_URLS = [
+  "/publisher1/v1",
+  "/publisher2/v1",
+  "/publisher3/v1",
 ];
 
-// Walrus publisher service (using Next.js rewrites)
-const getPublisherUrl = (path: string) => {
-  // Use Next.js rewrite proxy to avoid CORS
-  return `/publisher1/v1/${path.replace(/^\/+/, '').replace(/^v1\//, '')}`;
+// Helper to build publisher URL
+const getPublisherUrl = (baseUrl: string, path: string) => {
+  return `${baseUrl}/${path.replace(/^\/+/, '')}`;
 };
 
 interface SuiTransactionResult {
@@ -129,13 +138,31 @@ export default function BlockchainPhotoUpload({ onUploadSuccess }: Props) {
         }
       }
 
-      // Create new MatchAllowlist
+      // Get user's profile
+      const ownedProfiles = await client.getOwnedObjects({
+        owner: account!.address,
+        filter: {
+          StructType: `${PACKAGE_ID}::core::UserProfile`,
+        },
+        options: {
+          showContent: true,
+        },
+      });
+
+      if (ownedProfiles.data.length === 0) {
+        throw new Error("No profile found. Please create a profile first.");
+      }
+
+      const profileId = ownedProfiles.data[0].data?.objectId!;
+
+      // Create new MatchAllowlist using the shared entry function
       const tx = new Transaction();
       tx.moveCall({
         target: `${PACKAGE_ID}::seal_policies::create_match_allowlist_shared`,
         arguments: [
           tx.object(ALLOWLIST_REGISTRY_ID),
           tx.object(matchId),
+          tx.object(profileId),
           tx.pure.option("u64", null), // No expiry
           tx.object("0x6"), // Clock
         ],
@@ -246,10 +273,7 @@ export default function BlockchainPhotoUpload({ onUploadSuccess }: Props) {
         console.log("[Upload] MatchAllowlist ID:", matchAllowlistId);
       }
 
-      // Step 3: Encrypt and upload to Walrus
-      console.log("[Upload] Starting encryption...");
-      toast.info("Encrypting file...");
-
+      // Step 3: Read file data
       const fileData = await new Promise<Uint8Array>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -263,55 +287,87 @@ export default function BlockchainPhotoUpload({ onUploadSuccess }: Props) {
         reader.readAsArrayBuffer(selectedFile);
       });
 
-      let encryptionId: string;
+      let bytesToUpload: Uint8Array;
+      let encryptionId: string | undefined;
       let sealPolicyId: string | undefined;
 
-      if (matchAllowlistId) {
-        // Use MatchAllowlist-based encryption for matches-only content
+      // Encryption logic based on visibility level
+      if (visibilityLevel === "0" || visibilityLevel === "1") {
+        // Public (0) or All Matches (1) - upload raw without encryption
+        // Level 1: All matched users can see - treat as public for simplicity
+        console.log(`[Upload] ${visibilityLevel === "0" ? "Public" : "All Matches"} photo - uploading raw (no encryption)`);
+        toast.info("Uploading file...");
+        bytesToUpload = fileData;
+      } else if (visibilityLevel === "2" && matchAllowlistId) {
+        // Specific Match Only - encrypt with MatchAllowlist
+        console.log("[Upload] Specific Match photo - encrypting...");
+        toast.info("Encrypting file...");
+
         const nonce = crypto.getRandomValues(new Uint8Array(5));
         const TYPE_MATCH = 0x03;
         const allowlistIdBytes = fromHex(matchAllowlistId.replace("0x", ""));
         const namespace = new Uint8Array([TYPE_MATCH, ...allowlistIdBytes, ...nonce]);
         encryptionId = toHex(namespace);
         sealPolicyId = matchAllowlistId;
-      } else {
-        // Simple encryption for public/verified content
-        const nonce = crypto.getRandomValues(new Uint8Array(5));
-        encryptionId = toHex(nonce);
-      }
 
-      const sealClient = getSealClient();
-      console.log("[Upload] Encrypting with ID:", encryptionId);
-      const { encryptedObject: encryptedBytes } = await sealClient.encrypt({
-        threshold: 2,
-        packageId: PACKAGE_ID,
-        id: encryptionId,
-        data: fileData,
-      });
-      console.log("[Upload] Encrypted bytes:", encryptedBytes.length);
+        const sealClient = getSealClient();
+        console.log("[Upload] Encrypting with ID:", encryptionId);
+        const { encryptedObject: encryptedBytes } = await sealClient.encrypt({
+          threshold: 2,
+          packageId: PACKAGE_ID,
+          id: encryptionId!,
+          data: fileData,
+        });
+        console.log("[Upload] Encrypted bytes:", encryptedBytes.length);
+        bytesToUpload = encryptedBytes;
+      } else {
+        throw new Error("Invalid visibility configuration");
+      }
 
       toast.info("Uploading to Walrus...");
 
-      // Upload to Walrus publisher (using Next.js rewrite proxy)
+      // Upload to Walrus publisher with fallback
       const NUM_EPOCH = 1;
       console.log("[Upload] Uploading to Walrus via Next.js proxy");
-      console.log("[Upload] Blob size:", encryptedBytes.length, "bytes");
+      console.log("[Upload] Blob size:", bytesToUpload.length, "bytes");
 
-      const response = await fetch(getPublisherUrl(`blobs?epochs=${NUM_EPOCH}`), {
-        method: 'PUT',
-        body: encryptedBytes,
-      });
+      let result: any = null;
+      let lastError: Error | null = null;
 
-      console.log("[Upload] Response status:", response.status);
+      // Try each publisher
+      for (const publisherUrl of PUBLISHER_URLS) {
+        try {
+          const url = getPublisherUrl(publisherUrl, `blobs?epochs=${NUM_EPOCH}`);
+          console.log(`[Upload] Trying publisher: ${url}`);
 
-      if (response.status !== 200) {
-        const errorText = await response.text();
-        console.error("[Upload] Upload error:", errorText);
-        throw new Error("Failed to upload to Walrus. Please try again.");
+          const response = await fetch(url, {
+            method: 'PUT',
+            body: bytesToUpload as unknown as BodyInit,
+          });
+
+          console.log(`[Upload] Response status from ${publisherUrl}:`, response.status);
+
+          if (response.status === 200) {
+            result = await response.json();
+            console.log(`[Upload] ✅ Success with publisher: ${publisherUrl}`);
+            console.log("[Upload] Walrus response:", result);
+            break; // Success - exit loop
+          }
+
+          const errorText = await response.text();
+          console.log(`[Upload] ❌ Failed with ${publisherUrl}:`, errorText);
+          lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+        } catch (err: any) {
+          console.log(`[Upload] ❌ Error with ${publisherUrl}:`, err.message);
+          lastError = err;
+        }
       }
 
-      const result = await response.json();
-      console.log("[Upload] Walrus response:", result);
+      // Check if all publishers failed
+      if (!result) {
+        console.error("[Upload] All publishers failed. Last error:", lastError);
+        throw new Error(`Failed to upload to Walrus. All publishers failed. ${lastError?.message || ''}`);
+      }
 
       let blobId: string;
       if ('alreadyCertified' in result) {
@@ -356,8 +412,22 @@ export default function BlockchainPhotoUpload({ onUploadSuccess }: Props) {
         signAndExecuteTransaction(
           { transaction: tx },
           {
-            onSuccess: (result) => {
+            onSuccess: async (result) => {
               console.log("[Upload] Transaction success:", result.digest);
+
+              // Wait for transaction to be indexed before refreshing
+              try {
+                await client.waitForTransaction({
+                  digest: result.digest,
+                  options: {
+                    showObjectChanges: true,
+                  },
+                });
+                console.log("[Upload] Transaction indexed");
+              } catch (err) {
+                console.warn("[Upload] Failed to wait for transaction:", err);
+              }
+
               toast.success("Photo uploaded to blockchain! 🎉");
               setSelectedFile(null);
               setPreview(null);
@@ -366,8 +436,13 @@ export default function BlockchainPhotoUpload({ onUploadSuccess }: Props) {
               if (fileInputRef.current) {
                 fileInputRef.current.value = "";
               }
-              // Trigger gallery refresh
-              onUploadSuccess?.();
+
+              // Small delay to ensure blockchain state is updated
+              setTimeout(() => {
+                // Trigger gallery refresh
+                onUploadSuccess?.();
+              }, 500);
+
               resolve();
             },
             onError: (error) => {
@@ -467,19 +542,19 @@ export default function BlockchainPhotoUpload({ onUploadSuccess }: Props) {
                     </SelectItem>
                     <SelectItem value="1">
                       <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-blue-600" />
+                        <Users className="w-4 h-4 text-blue-600" />
                         <div className="flex flex-col">
-                          <span className="font-medium">Verified Only</span>
-                          <span className="text-xs text-gray-500">Only verified users</span>
+                          <span className="font-medium">All Matches</span>
+                          <span className="text-xs text-gray-500">All users you matched with</span>
                         </div>
                       </div>
                     </SelectItem>
                     <SelectItem value="2">
                       <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-purple-600" />
+                        <Lock className="w-4 h-4 text-purple-600" />
                         <div className="flex flex-col">
-                          <span className="font-medium">Matches Only</span>
-                          <span className="text-xs text-gray-500">Only your matches</span>
+                          <span className="font-medium">Specific Match</span>
+                          <span className="text-xs text-gray-500">Only one specific match</span>
                         </div>
                       </div>
                     </SelectItem>
