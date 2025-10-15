@@ -1,3 +1,4 @@
+'use client';
 import { auth } from "@/auth";
 import { Button } from "@nextui-org/react";
 import Link from "next/link";
