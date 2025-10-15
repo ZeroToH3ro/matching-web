@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
           action: {
             type: "launch_frame",
             name: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME,
-            url: process.env.NEXT_PUBLIC_URL,
+            url: process.env.NEXT_PUBLIC_BASE_URL,
             splashImageUrl: process.env.NEXT_PUBLIC_SPLASH_IMAGE,
             splashBackgroundColor:
               process.env.NEXT_PUBLIC_SPLASH_BACKGROUND_COLOR,
