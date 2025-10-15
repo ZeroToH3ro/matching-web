@@ -16,7 +16,11 @@ export default auth((req) => {
     const isAdminRoute = pathname.startsWith('/admin');
     const isWellKnown = pathname.startsWith('/.well-known/');
 
-    if (isPublic || isAdmin || isWellKnown) {
+    // Check if it's a static file (images, fonts, etc.) from public folder
+    const staticFileExtensions = /\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|otf|mp4|webm|ogg|mp3|wav|flac|aac|wasm)$/i;
+    const isStaticFile = staticFileExtensions.test(pathname);
+
+    if (isPublic || isAdmin || isWellKnown || isStaticFile) {
         return NextResponse.next();
     }
 
@@ -44,8 +48,9 @@ export default auth((req) => {
 })
 
 /**
- * This is a regular expression that will match any URL path 
+ * This is a regular expression that will match any URL path
  * that does not start with /api, /_next/static, /_next/image, or favicon.ico.
+ * Static files from public folder are handled in middleware logic above.
  */
 export const config = {
     matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
