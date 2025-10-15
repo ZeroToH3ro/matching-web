@@ -14,8 +14,9 @@ export default auth((req) => {
     const isProfileComplete = req.auth?.user?.profileComplete;
     const isAdmin = req.auth?.user?.role === 'ADMIN';
     const isAdminRoute = pathname.startsWith('/admin');
+    const isWellKnown = pathname.startsWith('/.well-known/');
 
-    if (isPublic || isAdmin) {
+    if (isPublic || isAdmin || isWellKnown) {
         return NextResponse.next();
     }
 
