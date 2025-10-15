@@ -1,63 +1,54 @@
 import React from "react";
-import { getMembers } from "../actions/memberActions";
-import MemberCard from "./MemberCard";
-import { fetchCurrentUserLikeIds } from "../actions/likeActions";
+import { getRandomizedMembers, getAvatarUrlsForMembers, recordSwipe } from "../actions/swipeActions";
 import { getAuthUserId } from "../actions/authActions";
-import PaginationComponent from "@/components/PaginationComponent";
-import type { GetMemberParams } from "@/types";
-import EmptyState from "@/components/EmptyState";
 import { getUserProfileObjectId } from "../actions/matchOnChainActions";
+import SwipeContainerWithBlockchain from "@/components/SwipeContainerWithBlockchain";
+import EmptyState from "@/components/EmptyState";
 
-export default async function MembersPage({
-  searchParams,
-}: {
-  searchParams: GetMemberParams;
-}) {
-  const { items: members, totalCount } = await getMembers(searchParams) as { items: any[]; totalCount: number };
+// Force dynamic rendering since we use auth headers
+export const dynamic = 'force-dynamic';
 
-  const likeIds = await fetchCurrentUserLikeIds();
-  const myProfileObjectId = await getUserProfileObjectId();
+export default async function MembersPage() {
+  const { items: members, totalCount } = await getRandomizedMembers();
   const currentUserId = await getAuthUserId();
+  const myProfileObjectId = await getUserProfileObjectId();
 
-  if (members.length === 0) return <EmptyState />;
+  if (members.length === 0) {
+    return (
+      <div className="container mx-auto py-8">
+        <EmptyState />
+      </div>
+    );
+  }
+
+  // Pre-fetch avatar URLs for all members
+  const memberIds = members.map((m) => m.userId);
+  const avatarUrls = await getAvatarUrlsForMembers(memberIds);
+
+  // Server action for handling swipes
+  async function handleSwipeAction(memberId: string, direction: "left" | "right") {
+    "use server";
+    return recordSwipe(memberId, direction);
+  }
 
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="container mx-auto py-8">
+      {/* Header */}
+      <div className="text-center space-y-2 mb-8">
+        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
           Discover Matches
         </h1>
-        <p className="text-muted-foreground">
-          {totalCount} {totalCount === 1 ? "person" : "people"} waiting to connect with you
-        </p>
       </div>
 
-      {/* Members Grid with Staggered Animation */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 animate-in fade-in duration-700">
-        {members.map((member, index) => (
-          <div
-            key={member.id}
-            style={{
-              animationDelay: `${index * 75}ms`,
-              animationFillMode: "backwards",
-            }}
-            className="animate-in fade-in slide-in-from-bottom-4"
-          >
-            <MemberCard
-              member={member}
-              likeIds={likeIds}
-              myProfileObjectId={myProfileObjectId}
-              currentUserId={currentUserId}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-center pt-4">
-        <PaginationComponent totalCount={totalCount} />
-      </div>
+      {/* Swipe Container with Blockchain Support (Default) */}
+      <SwipeContainerWithBlockchain
+        initialMembers={members}
+        avatarUrls={avatarUrls}
+        onSwipeAction={handleSwipeAction}
+        currentUserId={currentUserId}
+        myProfileObjectId={myProfileObjectId}
+        enableBlockchainByDefault={true}
+      />
     </div>
   );
 }

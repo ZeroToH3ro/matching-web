@@ -10,10 +10,10 @@ export default function EmptyState() {
     <div className="flex justify-center items-center mt-20">
       <Card className="p-5">
         <CardHeader className="text-3xl text-default">
-          There are no results for this filter
+          No profiles available
         </CardHeader>
         <CardBody className="text-center">
-          Please select a different filter
+          Check back later for new matches!
         </CardBody>
       </Card>
     </div>
