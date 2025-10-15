@@ -3,6 +3,8 @@ import { Button } from "@nextui-org/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import HomeLoginButton from "@/components/HomeLoginButton";
+import { sdk } from '@farcaster/miniapp-sdk';
+import { useEffect } from "react";
 
 const DynamicHeartAnimation = dynamic(
   () =>
@@ -28,6 +30,10 @@ const DynamicAnimatedFeatures = dynamic(
 
 export default async function Home() {
   const session = await auth();
+    
+  useEffect(() => {
+        sdk.actions.ready();
+  }, []);
 
   return (
     // This negative margin trick overrides the container mx-auto from layout.tsx
