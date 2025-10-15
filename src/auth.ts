@@ -5,6 +5,7 @@ import authConfig from './configs/authConfig'
 import { prisma } from '@/lib/prisma'
 
 const result = NextAuth({
+  secret: process.env.AUTH_SECRET,
   callbacks: {
     async jwt({ user, token, trigger, session }) {
       if (user) {
