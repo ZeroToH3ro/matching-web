@@ -5,7 +5,7 @@ function withValidProperties(properties: Record<string, undefined | string | str
 }
 
 export async function GET() {
-  const URL = process.env.NEXT_PUBLIC_URL as string;
+  const URL = process.env.NEXT_PUBLIC_BASE_URL as string;
   return Response.json({
     accountAssociation: {
       header: process.env.FARCASTER_HEADER,
