@@ -6,10 +6,9 @@ import { Web3AuthMessage } from '@/lib/Web3AuthMessage'
 import Credentials from 'next-auth/providers/credentials'
 import { loginSchema } from '../lib/schemas/LoginSchema'
 import type { User } from 'next-auth'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
 const SUI_NETWORK = process.env.SUI_NETWORK as 'testnet' | 'mainnet'
-const prisma = new PrismaClient()
 
 export default {
   providers: [

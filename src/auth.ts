@@ -1,9 +1,8 @@
 import NextAuth, { type NextAuthResult } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
-import { PrismaClient, Role } from '@prisma/client'
+import { Role } from '@prisma/client'
 import authConfig from './configs/authConfig'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 const result = NextAuth({
   callbacks: {
