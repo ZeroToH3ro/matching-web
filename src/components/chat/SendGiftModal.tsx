@@ -323,30 +323,33 @@ export default function SendGiftModal({
                         wallet
                       </p>
                     </div>
-
-                    <Input
-                      type="number"
-                      label="Amount (SUI)"
-                      placeholder="0.0"
-                      value={suiAmount}
-                      onValueChange={setSuiAmount}
-                      step="0.01"
-                      min="0.01"
-                      startContent={
-                        <span className="text-default-400 text-small">SUI</span>
-                      }
-                      description="Enter the amount of SUI to send"
-                    />
-
-                    <Textarea
-                      label="Note (Optional)"
-                      placeholder="Add a note for this transaction..."
-                      value={message}
-                      onValueChange={setMessage}
-                      minRows={2}
-                      maxRows={4}
-                      description="This note is for your reference only"
-                    />
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Amount (SUI)
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={suiAmount}
+                        onValueChange={setSuiAmount}
+                        step="0.01"
+                        min="0.01"
+                        description="Enter the amount of SUI to send"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-4 py-4">
+                      <label className="text-sm font-medium text-foreground">
+                        Note (Optional)
+                      </label>
+                      <Textarea
+                        placeholder="Add a note for this transaction..."
+                        value={message}
+                        onValueChange={setMessage}
+                        minRows={2}
+                        maxRows={4}
+                        description="This note is for your reference only"
+                      />
+                    </div>
 
                     <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                       <p className="text-xs text-yellow-600 dark:text-yellow-400">
