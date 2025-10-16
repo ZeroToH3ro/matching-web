@@ -17,6 +17,7 @@ import { User, Edit, LogOut, Wallet, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { useDisconnect, useAccount } from "wagmi";
 
 type Props = {
   userInfo: {
@@ -28,11 +29,16 @@ type Props = {
 
 export default function UserMenu({ userInfo }: Props) {
   const { mutate: disconnectWallet } = useDisconnectWallet();
+  const { disconnect: disconnectEvmWallet } = useDisconnect();
+  const { address: evmAddress } = useAccount();
   const currentAccount = useCurrentAccount();
   const { data: session } = useSession();
   const { setUserInfo } = useAuthStore();
   const [copied, setCopied] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(userInfo?.avatarUrl || null);
+
+  // Get the active wallet address (EVM or Sui)
+  const walletAddress = evmAddress || currentAccount?.address;
 
   // Fetch user's avatar from avatar service
   useEffect(() => {
@@ -88,7 +94,9 @@ export default function UserMenu({ userInfo }: Props) {
 
   const handleLogout = async () => {
     try {
+      // Disconnect both Sui and EVM wallets
       disconnectWallet();
+      disconnectEvmWallet();
     } catch (error) {
       console.error("Error disconnecting wallet:", error);
     } finally {
@@ -110,8 +118,8 @@ export default function UserMenu({ userInfo }: Props) {
   };
 
   const handleCopyAddress = async () => {
-    if (currentAccount?.address) {
-      await navigator.clipboard.writeText(currentAccount.address);
+    if (walletAddress) {
+      await navigator.clipboard.writeText(walletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -154,7 +162,7 @@ export default function UserMenu({ userInfo }: Props) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {currentAccount?.address && (
+        {walletAddress && (
           <>
             <DropdownMenuItem
               onClick={handleCopyAddress}
@@ -163,7 +171,7 @@ export default function UserMenu({ userInfo }: Props) {
               <Wallet className="h-4 w-4 mr-2 text-muted-foreground" />
               <div className="flex items-center justify-between flex-1 gap-2">
                 <span className="text-xs font-mono text-muted-foreground">
-                  {formatAddress(currentAccount.address)}
+                  {formatAddress(walletAddress)}
                 </span>
                 {copied ? (
                   <Check className="h-3 w-3 text-green-500" />

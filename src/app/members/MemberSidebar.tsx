@@ -175,9 +175,9 @@ export default function MemberSidebar({ member, navLinks }: Props) {
   };
 
   return (
-    <Card className="w-full mt-10 border-0 shadow-xl bg-gradient-to-br from-background to-muted/20 sticky top-24">
-      <CardHeader className="pb-0">
-        <div className="flex flex-col items-center space-y-4 pt-6">
+    <Card className="w-full mt-10 border-0 shadow-xl bg-gradient-to-br from-background to-muted/20 md:sticky md:top-24">
+      <CardHeader className="pb-0 px-4 md:px-6">
+        <div className="flex flex-col items-center space-y-3 md:space-y-4 pt-4 md:pt-6">
           {/* Clickable Profile Avatar */}
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full opacity-75 blur group-hover:opacity-100 transition duration-300" />
@@ -205,18 +205,18 @@ export default function MemberSidebar({ member, navLinks }: Props) {
           {/* Name and Age */}
           <div className="text-center space-y-1">
             <div className="flex items-center justify-center gap-2">
-              <h2 className="text-2xl font-bold tracking-tight">
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">
                 {member.name}
               </h2>
-              <Badge variant="secondary" className="text-base">
+              <Badge variant="secondary" className="text-sm md:text-base">
                 {calculateAge(member.dateOfBirth)}
               </Badge>
             </div>
 
             {/* Location */}
             <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              <span className="text-sm">
+              <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="text-xs md:text-sm">
                 {member.city}, {member.country}
               </span>
             </div>
@@ -224,11 +224,11 @@ export default function MemberSidebar({ member, navLinks }: Props) {
         </div>
       </CardHeader>
 
-      <CardContent className="px-6 pt-6">
-        <Separator className="mb-6" />
+      <CardContent className="px-4 md:px-6 pt-4 md:pt-6">
+        <Separator className="mb-4 md:mb-6" />
 
         {/* Navigation Links */}
-        <nav className="space-y-2">
+        <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
           {navLinks.map((link) => {
             const Icon = iconMap[link.name] || User;
             const isActive = pathname === link.href;
@@ -238,7 +238,7 @@ export default function MemberSidebar({ member, navLinks }: Props) {
                 href={link.href}
                 key={link.name}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all duration-300 group",
+                  "flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-lg font-semibold transition-all duration-300 group flex-shrink-0 md:flex-shrink",
                   isActive
                     ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/30"
                     : "hover:bg-gradient-to-r hover:from-pink-50 hover:to-purple-50 text-gray-700 hover:text-gray-900 hover:shadow-sm"
@@ -246,13 +246,13 @@ export default function MemberSidebar({ member, navLinks }: Props) {
               >
                 <Icon
                   className={cn(
-                    "h-5 w-5 transition-transform duration-300 group-hover:scale-110",
+                    "h-4 w-4 md:h-5 md:w-5 transition-transform duration-300 group-hover:scale-110",
                     isActive ? "text-white" : "text-gray-600"
                   )}
                 />
-                <span className="text-base">{link.name}</span>
+                <span className="text-sm md:text-base whitespace-nowrap">{link.name}</span>
                 {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse shadow-sm" />
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse shadow-sm hidden md:block" />
                 )}
               </Link>
             );
@@ -260,16 +260,16 @@ export default function MemberSidebar({ member, navLinks }: Props) {
         </nav>
       </CardContent>
 
-      <CardFooter className="px-6 pb-6">
-        <div className="space-y-2">
+      <CardFooter className="px-4 md:px-6 pb-4 md:pb-6">
+        <div className="space-y-2 w-full">
           <Button
             asChild
             variant="outline"
             className="w-full group hover:bg-primary hover:text-primary-foreground transition-all duration-300"
           >
             <Link href="/members" className="flex items-center justify-center gap-2">
-              <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1" />
-              <span>Back to Match</span>
+              <ArrowLeft className="h-3.5 w-3.5 md:h-4 md:w-4 transition-transform duration-300 group-hover:-translate-x-1" />
+              <span className="text-sm md:text-base">Back to Match</span>
             </Link>
           </Button>
         </div>

@@ -46,6 +46,7 @@ export default async function ChatPage({
           chatId={chatId}
           chatRoomId={chatRoom?.chatRoomId}
           chatAllowlistId={chatRoom?.chatAllowlistId}
+          recipientId={params.userId}
         />
       }
       footer={
