@@ -234,7 +234,7 @@ export default function ChatFormWithBlockchain({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="w-full">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 md:gap-2">
         {/* Gift Button */}
         {recipientAddress && (
           <SendGiftButton
@@ -246,7 +246,7 @@ export default function ChatFormWithBlockchain({
             size="md"
           />
         )}
-        
+
         <Input
           fullWidth
           placeholder={
@@ -257,6 +257,10 @@ export default function ChatFormWithBlockchain({
           isInvalid={!!errors.text}
           errorMessage={errors.text?.message}
           isDisabled={isSendingOnChain}
+          classNames={{
+            input: "text-xs md:text-sm",
+            inputWrapper: "h-10 md:h-12",
+          }}
         />
         <Button
           type="submit"
@@ -266,13 +270,18 @@ export default function ChatFormWithBlockchain({
           isLoading={isSubmitting || isSendingOnChain}
           isDisabled={!isValid || isSubmitting || isSendingOnChain}
           className={
-            hasOnChainChat ? 'bg-gradient-to-r from-pink-500 to-purple-600' : ''
+            hasOnChainChat
+              ? 'bg-gradient-to-r from-pink-500 to-purple-600 min-w-10 w-10 h-10 md:min-w-12 md:w-12 md:h-12'
+              : 'min-w-10 w-10 h-10 md:min-w-12 md:w-12 md:h-12'
           }
         >
           {isSendingOnChain ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
           ) : (
-            <HiPaperAirplane size={18} />
+            <>
+              <HiPaperAirplane size={16} className="md:hidden" />
+              <HiPaperAirplane size={18} className="hidden md:block" />
+            </>
           )}
         </Button>
       </div>

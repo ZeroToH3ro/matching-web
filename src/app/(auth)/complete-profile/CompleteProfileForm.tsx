@@ -25,6 +25,7 @@ import { isContractConfigured } from "@/configs/matchingMeContract";
 import { getProfileIdByAddress, getProfileInfo } from "@/lib/blockchain/contractQueries";
 import { useSponsoredTransaction } from "@/hooks/useSponsoredTransaction";
 import { toast } from "react-toastify";
+import { isEvmAddress } from "@/lib/walletUtils";
 
 interface EncryptionResponse {
   ciphertext: string;
@@ -46,10 +47,14 @@ export default function CompleteProfileForm() {
     clearErrors,
   } = methods;
 
-  const { update } = useSession();
+  const { update, data: session } = useSession();
   const { setAuth } = useAuthStore();
   const account = useCurrentAccount();
   const { client } = useSuiClientContext();
+
+  // Check if current user is using EVM wallet
+  const userWalletAddress = session?.user?.id || '';
+  const isEvmWallet = isEvmAddress(userWalletAddress);
   
   // Use Enoki-sponsored transactions
   const { executeSponsored, isLoading: isSponsoredLoading } = useSponsoredTransaction({
@@ -69,7 +74,8 @@ export default function CompleteProfileForm() {
       // Check if smart contract is configured
       const contractEnabled = isContractConfigured();
 
-      if (contractEnabled && !account?.address) {
+      // EVM wallets skip onchain profile creation
+      if (!isEvmWallet && contractEnabled && !account?.address) {
         setError("root.serverError", {
           message: "Connect your Sui wallet before completing your profile.",
         });
@@ -87,17 +93,32 @@ export default function CompleteProfileForm() {
         return;
       }
 
-      // If contract is not configured, skip on-chain profile creation
+      // Complete off-chain profile first
       const result = await completeSocialLoginProfile(data);
 
       if (result.status !== 'success') {
-        const errorMessage = Array.isArray(result.error) 
-          ? result.error.map(e => e.message).join(', ') 
+        const errorMessage = Array.isArray(result.error)
+          ? result.error.map(e => e.message).join(', ')
           : result.error || 'Failed to complete profile';
         throw new Error(errorMessage);
       }
 
-      // Continue with on-chain profile creation
+      // EVM wallets skip on-chain profile creation entirely
+      if (isEvmWallet) {
+        console.log('✅ EVM wallet detected - skipping on-chain profile creation');
+
+        const updatedSession = await update({ profileComplete: true });
+
+        if (updatedSession?.user?.id) {
+          setAuth(updatedSession.user.id, true);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+        window.location.href = "/members";
+        return;
+      }
+
+      // Continue with on-chain profile creation for Sui wallets
       if (!account?.address) {
         throw new Error('Wallet not connected');
       }

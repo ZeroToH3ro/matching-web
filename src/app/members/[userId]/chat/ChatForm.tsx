@@ -49,7 +49,7 @@ export default function ChatForm() {
       onSubmit={handleSubmit(onSubmit)}
       className="w-full"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 md:gap-2">
         <Input
           fullWidth
           placeholder="Type a message"
@@ -57,6 +57,10 @@ export default function ChatForm() {
           {...register("text")}
           isInvalid={!!errors.text}
           errorMessage={errors.text?.message}
+          classNames={{
+            input: "text-xs md:text-sm",
+            inputWrapper: "h-10 md:h-12",
+          }}
         />
         <Button
           type="submit"
@@ -65,8 +69,10 @@ export default function ChatForm() {
           radius="full"
           isLoading={isSubmitting}
           isDisabled={!isValid || isSubmitting}
+          className="min-w-10 w-10 h-10 md:min-w-12 md:w-12 md:h-12"
         >
-          <HiPaperAirplane size={18} />
+          <HiPaperAirplane size={16} className="md:hidden" />
+          <HiPaperAirplane size={18} className="hidden md:block" />
         </Button>
       </div>
       <div className="flex flex-col">

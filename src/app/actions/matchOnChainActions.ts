@@ -9,6 +9,7 @@ import {
   getChatRoomIdByMatchId,
   getChatAllowlistIdByChatRoomId
 } from '@/lib/blockchain/contractQueries';
+import { isEvmAddress } from '@/lib/walletUtils';
 
 export interface CreateMatchOnChainInput {
   matchId: string;
@@ -209,6 +210,12 @@ export async function getChatRoomByParticipants(
 
     const currentWalletAddress = currentUser?.walletAddress;
     if (!currentWalletAddress) return null;
+
+    // EVM wallets don't have on-chain chat rooms - return null to fallback to off-chain
+    if (isEvmAddress(currentUserId) || isEvmAddress(targetWalletAddress)) {
+      console.log('[getChatRoomByParticipants] EVM wallet detected - skipping on-chain chat lookup');
+      return null;
+    }
 
     // Query blockchain using wallet addresses
     const network = (process.env.NEXT_PUBLIC_SUI_NETWORK || 'testnet') as 'testnet' | 'mainnet';

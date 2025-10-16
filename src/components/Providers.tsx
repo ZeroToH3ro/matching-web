@@ -17,6 +17,7 @@ import { WalrusClientProvider } from '@/providers/WalrusClientContext'
 import { CurrentUserProvider } from '@/contexts/CurrentUserContext'
 import { SignInWithWalletDialog } from './SignInWithWalletDialog'
 import AuthStateSync from './AuthStateSync'
+import { EVMWeb3Provider } from './EVMWeb3Provider'
 
 const preferredWallets = ['Enoki Google']
 const queryClient = new QueryClient()
@@ -66,41 +67,43 @@ export default function Providers({
     <SessionProvider>
       <AuthStateSync />
       <QueryClientProvider client={queryClient}>
-        <NextUIProvider>
-          <ToastContainer 
-            position="bottom-right" 
-            hideProgressBar 
-            autoClose={5000}
-            newestOnTop={true}
-            closeOnClick={true}
-            rtl={false}
-            pauseOnFocusLoss={false}
-            draggable={true}
-            pauseOnHover={true}
-            style={{ zIndex: 9999999 }}
-            toastStyle={{ zIndex: 9999999 }}
-            className="!z-[9999999]"
-            toastClassName="!z-[9999999]"
-          />
-          <CurrentUserProvider>
-            <SuiClientProvider
-              networks={networkConfig}
-              defaultNetwork={suiNetwork}
-            >
-              <RegisterEnokiWallets
-                googleClientId={googleClientId}
-                enokiApiKey={enokiApiKey}
-                redirectUrl={redirectUrl}
-              />
-              <WalrusClientProvider>
-                <WalletProvider autoConnect preferredWallets={preferredWallets}>
-                  <SignInWithWalletDialog />
-                  {children}
-                </WalletProvider>
-              </WalrusClientProvider>
-            </SuiClientProvider>
-          </CurrentUserProvider>
-        </NextUIProvider>
+        <EVMWeb3Provider>
+          <NextUIProvider>
+            <ToastContainer
+              position="bottom-right"
+              hideProgressBar
+              autoClose={5000}
+              newestOnTop={true}
+              closeOnClick={true}
+              rtl={false}
+              pauseOnFocusLoss={false}
+              draggable={true}
+              pauseOnHover={true}
+              style={{ zIndex: 9999999 }}
+              toastStyle={{ zIndex: 9999999 }}
+              className="!z-[9999999]"
+              toastClassName="!z-[9999999]"
+            />
+            <CurrentUserProvider>
+              <SuiClientProvider
+                networks={networkConfig}
+                defaultNetwork={suiNetwork}
+              >
+                <RegisterEnokiWallets
+                  googleClientId={googleClientId}
+                  enokiApiKey={enokiApiKey}
+                  redirectUrl={redirectUrl}
+                />
+                <WalrusClientProvider>
+                  <WalletProvider autoConnect preferredWallets={preferredWallets}>
+                    <SignInWithWalletDialog />
+                    {children}
+                  </WalletProvider>
+                </WalrusClientProvider>
+              </SuiClientProvider>
+            </CurrentUserProvider>
+          </NextUIProvider>
+        </EVMWeb3Provider>
       </QueryClientProvider>
     </SessionProvider>
   )

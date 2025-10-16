@@ -40,7 +40,7 @@ export default function MessageBox({
   );
 
   const messageContentClasses = clsx(
-    "flex flex-col w-[50%] px-2 py-1",
+    "flex flex-col w-[85%] md:w-[70%] lg:w-[50%] px-2 md:px-3 py-1",
     {
       "rounded-l-xl rounded-tr-xl text-white bg-blue-100":
         isCurrentUserSender,
@@ -60,17 +60,17 @@ export default function MessageBox({
     >
       {message.dateRead &&
       message.recipientId !== currentUserId ? (
-        <span className="text-xs text-black text-italic">
+        <span className="text-[10px] md:text-xs text-black text-italic">
           (Read {timeAgo(message.dateRead)})
         </span>
       ) : (
         <div></div>
       )}
       <div className="flex">
-        <span className="text-sm font-semibold text-gray-900">
+        <span className="text-xs md:text-sm font-semibold text-gray-900">
           {message.senderName}
         </span>
-        <span className="text-sm text-gray-500 ml-2">
+        <span className="text-xs md:text-sm text-gray-500 ml-1 md:ml-2">
           {message.created}
         </span>
       </div>
@@ -81,7 +81,7 @@ export default function MessageBox({
     return (
       <div className={messageContentClasses}>
         {renderMessageHeader()}
-        <p className="text-sm py-3 text-gray-900">
+        <p className="text-xs md:text-sm py-2 md:py-3 text-gray-900">
           {message.text}
         </p>
       </div>
@@ -91,7 +91,7 @@ export default function MessageBox({
   return (
     <div className="grid grid-rows-1">
       <div
-        className={clsx("flex gap-2 mb-3", {
+        className={clsx("flex gap-1 md:gap-2 mb-2 md:mb-3", {
           "justify-end text-right":
             isCurrentUserSender,
           "justify-start": !isCurrentUserSender,
