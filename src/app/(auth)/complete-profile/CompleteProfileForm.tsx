@@ -16,14 +16,15 @@ import { Button } from "@nextui-org/react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClientContext } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSuiClientContext } from "@mysten/dapp-kit";
 import { buildCreateProfileTransaction, fetchProfileRegistryReference } from "@/lib/contracts/matchingMe";
 import { markProfileCompleteOnChain } from "@/app/actions/profileOnChainActions";
 import { completeSocialLoginProfile } from "@/app/actions/authActions";
 import { calculateAge } from "@/lib/util";
-import type { SuiTransactionBlockResponse } from "@mysten/sui/client";
 import { isContractConfigured } from "@/configs/matchingMeContract";
 import { getProfileIdByAddress, getProfileInfo } from "@/lib/blockchain/contractQueries";
+import { useSponsoredTransaction } from "@/hooks/useSponsoredTransaction";
+import { toast } from "react-toastify";
 
 interface EncryptionResponse {
   ciphertext: string;
@@ -49,19 +50,15 @@ export default function CompleteProfileForm() {
   const { setAuth } = useAuthStore();
   const account = useCurrentAccount();
   const { client } = useSuiClientContext();
-  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction<SuiTransactionBlockResponse>({
-    execute: async ({ bytes, signature }) =>
-      client.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: {
-          showEvents: true,
-          showRawEffects: true,
-          showObjectChanges: true,
-        },
-        requestType: "WaitForLocalExecution",
-      }),
+  
+  // Use Enoki-sponsored transactions
+  const { executeSponsored, isLoading: isSponsoredLoading } = useSponsoredTransaction({
+    onSuccess: (digest) => {
+      console.log('✅ Sponsored transaction executed:', digest);
+    },
+    showToasts: true,
   });
+  
   const onSubmit = async (
     data: ProfileSchema
   ) => {
@@ -162,11 +159,25 @@ export default function CompleteProfileForm() {
           registry,
         });
 
-        const executionResult = await signAndExecuteTransaction({
-          transaction,
+        // Execute with Enoki sponsorship
+        const executionResult = await executeSponsored(transaction, {
+          allowedMoveCallTargets: [
+            `${process.env.NEXT_PUBLIC_PACKAGE_ID}::core::create_profile`,
+          ],
         });
 
-        profileObjectId = extractProfileObjectId(executionResult, account.address);
+        if (!executionResult.success || !executionResult.digest) {
+          throw new Error('Failed to create profile on-chain');
+        }
+
+        // Wait for transaction to be indexed
+        await client.waitForTransaction({
+          digest: executionResult.digest,
+          options: { showObjectChanges: true },
+        });
+
+        // Query the created profile object ID
+        profileObjectId = await getProfileIdByAddress(client, account.address);
 
         if (!profileObjectId) {
           throw new Error("Profile created but object ID could not be determined.");
@@ -281,45 +292,3 @@ async function safeParseError(response: Response): Promise<string | null> {
   }
 }
 
-function extractProfileObjectId(
-  result: SuiTransactionBlockResponse,
-  ownerAddress: string,
-): string | null {
-  // Try objectChanges first (more reliable)
-  if (result.objectChanges) {
-    for (const change of result.objectChanges) {
-      if (
-        change.type === 'created' &&
-        'owner' in change &&
-        typeof change.owner === 'object' &&
-        change.owner !== null &&
-        'AddressOwner' in change.owner &&
-        change.owner.AddressOwner === ownerAddress
-      ) {
-        console.log('✅ Found profile via objectChanges:', change.objectId);
-        return change.objectId;
-      }
-    }
-  }
-
-  // Fallback to effects.created
-  const createdObjects = result.effects?.created ?? [];
-
-  for (const created of createdObjects) {
-    if (isAddressOwner(created.owner) && created.owner.AddressOwner === ownerAddress) {
-      console.log('✅ Found profile via effects.created:', created.reference?.objectId);
-      return created.reference?.objectId ?? null;
-    }
-  }
-
-  console.error('❌ No profile object found in result');
-  return null;
-}
-
-function isAddressOwner(owner: unknown): owner is { AddressOwner: string } {
-  if (typeof owner !== "object" || owner === null) {
-    return false;
-  }
-
-  return "AddressOwner" in owner;
-}
