@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { Transaction } from "@mysten/sui/transactions";
-import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { useSuiClient } from "@mysten/dapp-kit";
+import { useSponsoredTransaction } from "./useSponsoredTransaction";
 
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID!;
 const DISCOVERY_MODULE = `${PACKAGE_ID}::discovery`;
 
 export function useSwipeBlockchain() {
   const [isLoading, setIsLoading] = useState(false);
-  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const { executeSponsored } = useSponsoredTransaction();
   const suiClient = useSuiClient();
 
   /**
@@ -36,9 +37,13 @@ export function useSwipeBlockchain() {
         ],
       });
 
-      const result = await signAndExecute({
-        transaction: tx,
+      const result = await executeSponsored(tx, {
+        allowedMoveCallTargets: [`${DISCOVERY_MODULE}::create_discovery_session`],
       });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create discovery session');
+      }
 
       // Return success - session ID will be in the transaction result
       // Client can query for created objects if needed
@@ -86,9 +91,14 @@ export function useSwipeBlockchain() {
         ],
       });
 
-      const result = await signAndExecute({
-        transaction: tx,
+      const result = await executeSponsored(tx, {
+        allowedMoveCallTargets: [`${DISCOVERY_MODULE}::record_swipe`],
+        allowedAddresses: [targetUserAddress],
       });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to record swipe');
+      }
 
       // Return digest as proof of swipe
       return {
@@ -130,9 +140,13 @@ export function useSwipeBlockchain() {
         ],
       });
 
-      const result = await signAndExecute({
-        transaction: tx,
+      const result = await executeSponsored(tx, {
+        allowedMoveCallTargets: [`${DISCOVERY_MODULE}::suggest_random_match`],
       });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to get suggestion');
+      }
 
       // Return success - can query events separately if needed
       return {
@@ -174,9 +188,13 @@ export function useSwipeBlockchain() {
         ],
       });
 
-      await signAndExecute({
-        transaction: tx,
+      const result = await executeSponsored(tx, {
+        allowedMoveCallTargets: [`${DISCOVERY_MODULE}::refresh_discovery_queue`],
       });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to refresh queue');
+      }
 
       return {
         success: true,

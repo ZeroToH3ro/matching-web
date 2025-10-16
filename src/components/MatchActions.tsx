@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { toast } from "react-toastify";
 import { Loader2, MessageSquare, CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { markMatchActive, saveChatOnChain } from "@/app/actions/matchOnChainActions";
+import { useSponsoredTransaction } from "@/hooks/useSponsoredTransaction";
 
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID || "0xd381f9c5fb2b26360501c058c1f66e3f61cac1ac3a71181c19d4074888476821";
 const USAGE_TRACKER_ID = process.env.NEXT_PUBLIC_USAGE_TRACKER_ID || "0xc42ca99296a4b901b8ffc7dd858fe56855d3420996503950afad76f31449c1f7";
@@ -31,7 +32,9 @@ export default function MatchActions({
   const router = useRouter();
   const account = useCurrentAccount();
   const client = useSuiClient();
-  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+  const { executeSponsored, isLoading: isSponsorLoading } = useSponsoredTransaction({
+    showToasts: true,
+  });
 
   const [isActivating, setIsActivating] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
@@ -57,24 +60,19 @@ export default function MatchActions({
         ],
       });
 
-      signAndExecuteTransaction(
-        { transaction: tx },
-        {
-          onSuccess: async (result) => {
-            await markMatchActive({
-              matchId,
-              digest: result.digest,
-            });
+      const result = await executeSponsored(tx, {
+        allowedMoveCallTargets: [`${PACKAGE_ID}::core::update_match_status`],
+      });
 
-            toast.success("Match activated!");
-            router.refresh();
-          },
-          onError: (error) => {
-            console.error("Failed to activate match:", error);
-            toast.error("Failed to activate match");
-          },
-        }
-      );
+      if (result.success && result.digest) {
+        await markMatchActive({
+          matchId,
+          digest: result.digest,
+        });
+
+        toast.success("Match activated! ⚡");
+        router.refresh();
+      }
     } catch (error: any) {
       console.error("Error activating match:", error);
       toast.error(error.message || "Failed to activate match");
@@ -113,61 +111,52 @@ export default function MatchActions({
         ],
       });
 
-      signAndExecuteTransaction(
-        { transaction: tx },
-        {
-          onSuccess: async (result) => {
-            try {
-              const txResult = await client.waitForTransaction({
-                digest: result.digest,
-              });
+      const result = await executeSponsored(tx, {
+        allowedMoveCallTargets: [`${PACKAGE_ID}::integration::create_chat_from_match_entry`],
+      });
 
-              // Extract chat room and allowlist IDs
-              const createdObjects = txResult.objectChanges?.filter(
-                (change: any) => change.type === "created"
-              ) || [];
+      if (result.success && result.digest) {
+        const txResult = await client.waitForTransaction({
+          digest: result.digest,
+          options: { showObjectChanges: true },
+        });
 
-              const chatRoomObj = createdObjects.find(
-                (obj: any) => obj.objectType?.includes("::chat::ChatRoom")
-              );
-              const allowlistObj = createdObjects.find(
-                (obj: any) => obj.objectType?.includes("::allowlist::MatchAllowlist")
-              );
+        // Extract chat room and allowlist IDs
+        const createdObjects = txResult.objectChanges?.filter(
+          (change: any) => change.type === "created"
+        ) || [];
 
-              if (!chatRoomObj || !allowlistObj) {
-                throw new Error("Chat room or allowlist not found");
-              }
+        const chatRoomObj = createdObjects.find(
+          (obj: any) => obj.objectType?.includes("::chat::ChatRoom")
+        );
+        const allowlistObj = createdObjects.find(
+          (obj: any) => obj.objectType?.includes("::allowlist::MatchAllowlist")
+        );
 
-              const chatRoomId = (chatRoomObj as any).objectId;
-              const chatAllowlistId = (allowlistObj as any).objectId;
-
-              // Save to database
-              await saveChatOnChain({
-                matchId,
-                chatRoomId,
-                chatAllowlistId,
-                digest: result.digest,
-              });
-
-              setChatCreated(true);
-              toast.success(`Chat created with ${partnerName}!`);
-
-              if (onChatCreated) {
-                onChatCreated(chatRoomId);
-              }
-
-              router.push(`/messages`);
-            } catch (error: any) {
-              console.error("Error processing chat creation:", error);
-              toast.error("Chat created but failed to save: " + error.message);
-            }
-          },
-          onError: (error) => {
-            console.error("Failed to create chat:", error);
-            toast.error("Failed to create chat");
-          },
+        if (!chatRoomObj || !allowlistObj) {
+          throw new Error("Chat room or allowlist not found");
         }
-      );
+
+        const chatRoomId = (chatRoomObj as any).objectId;
+        const chatAllowlistId = (allowlistObj as any).objectId;
+
+        // Save to database
+        await saveChatOnChain({
+          matchId,
+          chatRoomId,
+          chatAllowlistId,
+          digest: result.digest,
+        });
+
+        setChatCreated(true);
+        toast.success(`Chat created with ${partnerName}! 💬`);
+
+        if (onChatCreated) {
+          onChatCreated(chatRoomId);
+        }
+
+        router.push(`/messages`);
+      }
     } catch (error: any) {
       console.error("Error creating chat:", error);
       toast.error(error.message || "Failed to create chat");
