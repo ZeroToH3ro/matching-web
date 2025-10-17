@@ -139,13 +139,18 @@ function HomeLoginButtonInner() {
 
       toast.success('Login successful!')
 
-      // Update session
+      // Update session with optimized timing
       await updateSession()
-      await new Promise(resolve => setTimeout(resolve, 300))
+      await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Fetch fresh session
-      const response = await fetch('/api/auth/session')
-      const session = await response.json()
+      // Fetch fresh session with faster retries
+      let session = null
+      for (let i = 0; i < 2; i++) {
+        const response = await fetch('/api/auth/session')
+        session = await response.json()
+        if (session?.user?.id) break
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
 
       // Update Zustand store
       if (session?.user) {
@@ -182,13 +187,18 @@ function HomeLoginButtonInner() {
 
       toast.success('Login successful!')
 
-      // Update session
+      // Update session with optimized timing
       await updateSession()
-      await new Promise(resolve => setTimeout(resolve, 300))
+      await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Fetch fresh session
-      const response = await fetch('/api/auth/session')
-      const session = await response.json()
+      // Fetch fresh session with faster retries
+      let session = null
+      for (let i = 0; i < 2; i++) {
+        const response = await fetch('/api/auth/session')
+        session = await response.json()
+        if (session?.user?.id) break
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
 
       // Update Zustand store
       if (session?.user) {
@@ -248,7 +258,7 @@ function HomeLoginButtonInner() {
           <ModalHeader className="flex flex-col gap-1">
             Select Wallet Type
           </ModalHeader>
-          <ModalBody className="pb-6">
+          <ModalBody className="pb-6 bg-white">
             <div className="flex flex-col gap-3">
               <Button
                 onPress={handleSuiWalletConnect}

@@ -1,10 +1,8 @@
 'use client'
 
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { GiSelfLove } from "react-icons/gi";
-import NavLink from "./NavLink";
 import UserMenu from "./UserMenu";
 import FiltersWrapper from "./FiltersWrapper";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -27,15 +25,20 @@ export default function TopNavGlass({ initialUserInfo, initialRole }: Props) {
   const [userInfo, setUserInfo] = useState<UserInfo>(initialUserInfo);
 
   useEffect(() => {
+    // Only update when status changes or user data changes
     if (status === "authenticated" && session?.user) {
-      setUserInfo({
+      const newUserInfo = {
         name: session.user.name || null,
         image: session.user.image || null,
-      });
-    } else if (status === "unauthenticated") {
+      };
+      // Only update if actually changed
+      if (JSON.stringify(newUserInfo) !== JSON.stringify(userInfo)) {
+        setUserInfo(newUserInfo);
+      }
+    } else if (status === "unauthenticated" && userInfo !== null) {
       setUserInfo(null);
     }
-  }, [session, status]);
+  }, [session?.user?.name, session?.user?.image, status]);
 
   const memberLinks = [
     { href: "/members", label: "Matches" },
@@ -91,29 +94,9 @@ export default function TopNavGlass({ initialUserInfo, initialRole }: Props) {
               ))}
           </div>
 
-          {/* Right Side - User Menu or Auth Buttons */}
+          {/* Right Side - User Menu */}
           <div className="flex items-center gap-3">
-            {isLoggedIn && userInfo ? (
-              <UserMenu userInfo={userInfo} />
-            ) : (
-              <>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-300/80 text-slate-700 bg-white/60 backdrop-blur-md hover:bg-white/80 hover:border-gray-400/80 shadow-sm"
-                >
-                  <Link href="/login">Login</Link>
-                </Button>
-                <Button
-                  asChild
-                  size="sm"
-                  className="bg-pink-500/90 hover:bg-pink-600 text-white shadow-md hover:shadow-lg"
-                >
-                  <Link href="/register">Register</Link>
-                </Button>
-              </>
-            )}
+            {isLoggedIn && userInfo && <UserMenu userInfo={userInfo} />}
           </div>
         </div>
 

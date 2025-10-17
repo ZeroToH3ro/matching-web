@@ -107,13 +107,22 @@ export default function CompleteProfileForm() {
       if (isEvmWallet) {
         console.log('✅ EVM wallet detected - skipping on-chain profile creation');
 
-        const updatedSession = await update({ profileComplete: true });
+        await update({ profileComplete: true });
+        await new Promise(resolve => setTimeout(resolve, 200));
 
-        if (updatedSession?.user?.id) {
-          setAuth(updatedSession.user.id, true);
+        // Fetch fresh session with faster retries
+        let session = null;
+        for (let i = 0; i < 2; i++) {
+          const response = await fetch('/api/auth/session');
+          session = await response.json();
+          if (session?.user?.profileComplete) break;
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        await new Promise(resolve => setTimeout(resolve, 300));
+        if (session?.user?.id) {
+          setAuth(session.user.id, true);
+        }
+
         window.location.href = "/members";
         return;
       }
@@ -217,13 +226,22 @@ export default function CompleteProfileForm() {
         console.log('✅ New on-chain profile created:', profileObjectId);
       }
 
-      const onChainUpdatedSession = await update({ profileComplete: true });
+      await update({ profileComplete: true });
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (onChainUpdatedSession?.user?.id) {
-        setAuth(onChainUpdatedSession.user.id, true);
+      // Fetch fresh session multiple times to ensure it's updated
+      let session = null;
+      for (let i = 0; i < 3; i++) {
+        const response = await fetch('/api/auth/session');
+        session = await response.json();
+        if (session?.user?.profileComplete) break;
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      if (session?.user?.id) {
+        setAuth(session.user.id, true);
+      }
+
       window.location.href = "/members";
     } catch (error) {
       console.error("Error completing profile:", error);
