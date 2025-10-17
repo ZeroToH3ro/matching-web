@@ -255,7 +255,7 @@ function HomeLoginButtonInner() {
         placement="center"
       >
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
+          <ModalHeader className="flex flex-col gap-1 bg-white">
             Select Wallet Type
           </ModalHeader>
           <ModalBody className="pb-6 bg-white">

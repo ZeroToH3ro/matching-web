@@ -10,9 +10,9 @@ export default function RegisterSuccessPage() {
   return (
     <CardWrapper
       headerText="You have successfully registered"
-      subHeaderText="You can now login to the app"
-      action={() => router.push("/login")}
-      actionLabel="Go to login"
+      subHeaderText="You can now login on the home page"
+      action={() => router.push("/")}
+      actionLabel="Go to home"
       headerIcon={FaCheckCircle}
     />
   );
