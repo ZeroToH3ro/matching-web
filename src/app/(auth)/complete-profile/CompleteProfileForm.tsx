@@ -250,13 +250,14 @@ export default function CompleteProfileForm() {
                   }
                 </p>
               )}
-              <div className="flex flex-row items-center gap-6">
+              <div className="flex flex-col gap-4 pt-2">
                 <Button
                   isLoading={isLoading || isSubmitting}
                   isDisabled={!isValid || isLoading}
                   fullWidth
                   color="default"
                   type="submit"
+                  size="lg"
                 >
                   Submit
                 </Button>

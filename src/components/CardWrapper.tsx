@@ -28,18 +28,18 @@ export default function CardWrapper({
   actionLabel,
 }: Props) {
   return (
-    <div className="flex items-center justify-center vertical-center">
-      <Card className="w-2/5 mx-auto p-5">
+    <div className="flex items-center justify-center vertical-center px-4">
+      <Card className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:w-2/5 mx-auto p-4 sm:p-5">
         <CardHeader className="flex flex-col items-center justify-center">
           <div className="flex flex-col gap-2 items-center text-default">
-            <div className="flex flex-row items-center gap-3">
-              <Icon size={30} />
-              <h1 className="text-3xl font-semibold">
+            <div className="flex flex-row items-center gap-2 sm:gap-3">
+              <Icon size={24} className="sm:w-[30px] sm:h-[30px]" />
+              <h1 className="text-2xl sm:text-3xl font-semibold text-center">
                 {headerText}
               </h1>
             </div>
             {subHeaderText && (
-              <p className="text-neutral-500">
+              <p className="text-neutral-500 text-sm sm:text-base text-center px-2">
                 {subHeaderText}
               </p>
             )}

@@ -45,15 +45,12 @@ export function Web3ModalProvider({ children }: { children: ReactNode }) {
         })
         globalModalInitialized = true
         initRef.current = true
-        console.log(`✅ Web3Modal initialized successfully ${isInIframe ? '(iframe mode)' : ''}`)
         setInitialized(true)
       } catch (error) {
-        console.error('Failed to initialize Web3Modal:', error)
         // Still set initialized to true to prevent blocking
         setInitialized(true)
       }
     } else {
-      console.warn('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID not set')
       setInitialized(true)
     }
   }, [])
