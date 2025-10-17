@@ -83,7 +83,7 @@ export default function ProfileDetailsForm() {
               {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 bg-white" align="start">
+          <PopoverContent className="w-auto p-0 bg-white max-w-[calc(100vw-2rem)]" align="start" side="bottom" sideOffset={4}>
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -101,6 +101,7 @@ export default function ProfileDetailsForm() {
                 return date > eighteenYearsAgo || date > today;
               }}
               defaultMonth={new Date(new Date().getFullYear() - 25, 0, 1)}
+              className="scale-90 sm:scale-100"
             />
           </PopoverContent>
         </Popover>
