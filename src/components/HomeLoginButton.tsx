@@ -54,6 +54,13 @@ function HomeLoginButtonInner() {
   // Track initial connection state to detect auto-reconnect
   const initialConnectionChecked = useRef(false)
 
+  // Detect iframe context
+  const [isInIframe, setIsInIframe] = useState(false)
+
+  useEffect(() => {
+    setIsInIframe(typeof window !== 'undefined' && window.self !== window.top)
+  }, [])
+
   useEffect(() => {
     // Mark initial state as checked after first render
     if (!initialConnectionChecked.current) {
@@ -206,6 +213,17 @@ function HomeLoginButtonInner() {
 
   const handleEvmWalletConnect = async () => {
     userTriggeredConnection.current = true // Mark as user-triggered
+
+    // Check if running in iframe (Farcaster context)
+    const isInIframe = typeof window !== 'undefined' && window.self !== window.top
+
+    if (isInIframe) {
+      // In iframe, show message about browser extensions
+      toast.info('In Farcaster: Please use a browser extension wallet (MetaMask, Trust Wallet, etc.) or open in new tab', {
+        autoClose: 5000
+      })
+    }
+
     await openEvmModal()
   }
 
@@ -234,6 +252,12 @@ function HomeLoginButtonInner() {
           </ModalHeader>
           <ModalBody className="pb-6 bg-white">
             <div className="flex flex-col gap-3">
+              {isInIframe && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Running in Farcaster</p>
+                  <p>Use browser extension wallets (MetaMask, etc.) or open in new tab for full wallet support.</p>
+                </div>
+              )}
               <Button
                 onPress={handleSuiWalletConnect}
                 className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-lg py-6"
@@ -248,6 +272,16 @@ function HomeLoginButtonInner() {
               >
                 Connect EVM Wallet
               </Button>
+              {isInIframe && (
+                <Button
+                  onPress={() => window.open(window.location.href, '_blank')}
+                  className="bg-gray-200 text-gray-800 text-lg py-6 border-2 border-gray-300"
+                  size="lg"
+                  variant="bordered"
+                >
+                  Open in New Tab
+                </Button>
+              )}
             </div>
           </ModalBody>
         </ModalContent>
