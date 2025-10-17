@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from './auth';
 
 const publicRoutes = ['/'];
-const authRoutes = ['/login', '/register', '/register/success', '/verify-email', '/forgot-password', '/reset-password'];
+const authRoutes = ['/register', '/register/success', '/verify-email', '/forgot-password', '/reset-password'];
 
 export default auth((req) => {
     const { nextUrl } = req;
@@ -28,6 +28,11 @@ export default auth((req) => {
         return NextResponse.redirect(new URL('/', nextUrl));
     }
 
+    // Redirect /login to home (login is now on home page)
+    if (pathname === '/login') {
+        return NextResponse.redirect(new URL('/', nextUrl));
+    }
+
     if (isAuthRoute) {
         if (isLoggedIn) {
             return NextResponse.redirect(new URL('/members', nextUrl))
@@ -36,7 +41,7 @@ export default auth((req) => {
     }
 
     if (!isPublic && !isLoggedIn) {
-        return NextResponse.redirect(new URL('/login', nextUrl))
+        return NextResponse.redirect(new URL('/', nextUrl))
     }
 
     if (isLoggedIn && !isProfileComplete && pathname !== '/complete-profile') {
