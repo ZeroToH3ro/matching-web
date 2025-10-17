@@ -16,13 +16,15 @@ type Props = {
 export default function ImageUploadButton({
   onUploadImage,
 }: Props) {
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "matchme-demo";
+
   return (
     <CldUploadButton
       options={{ maxFiles: 1 }}
       onSuccess={onUploadImage}
       signatureEndpoint="/api/sign-image"
-      uploadPreset="matchme-demo"
-      className={`flex items-center gap-2 border-2 border-default text-default 
+      uploadPreset={uploadPreset}
+      className={`flex items-center gap-2 border-2 border-default text-default
         rounded-lg py-2 px-4 hover:bg-default/10`}
     >
       <HiPhoto size={28} />

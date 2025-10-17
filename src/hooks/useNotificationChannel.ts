@@ -31,14 +31,19 @@ export const useNotificationChannel = (userId: string | null, profileComplete: b
 
     useEffect(() => {
         if (!userId || !profileComplete) return;
-        if (!channelRef.current) {
-            channelRef.current = pusherClient.subscribe(`private-${userId}`);
 
-            channelRef.current.bind('message:new', handleNewMessage);
-            channelRef.current.bind('like:new', handleNewLike);
-        }
+        // Delay Pusher subscription to avoid blocking initial page load
+        const timeoutId = setTimeout(() => {
+            if (!channelRef.current) {
+                channelRef.current = pusherClient.subscribe(`private-${userId}`);
+
+                channelRef.current.bind('message:new', handleNewMessage);
+                channelRef.current.bind('like:new', handleNewLike);
+            }
+        }, 1000); // Delay 1 second after page load
 
         return () => {
+            clearTimeout(timeoutId);
             if (channelRef.current) {
                 channelRef.current.unsubscribe();
                 channelRef.current.unbind('message:new', handleNewMessage);
@@ -46,5 +51,5 @@ export const useNotificationChannel = (userId: string | null, profileComplete: b
                 channelRef.current = null;
             }
         }
-    }, [userId, handleNewMessage, profileComplete])
+    }, [userId, handleNewMessage, handleNewLike, profileComplete])
 }

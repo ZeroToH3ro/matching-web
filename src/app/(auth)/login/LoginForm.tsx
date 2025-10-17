@@ -15,8 +15,6 @@ import { Web3AuthMessage } from '@/lib/Web3AuthMessage'
 import { toast } from 'react-toastify'
 import { signInUser, signOutUser } from '@/app/actions/authActions'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
-import { useRouter } from 'next/navigation'
-import { useAuthStore } from '@/hooks/useAuthStore'
 
 export default function LoginForm() {
   const walletAccount = useCurrentAccount()
@@ -27,8 +25,6 @@ export default function LoginForm() {
   const { mutate: signPersonalMessage } = useSignPersonalMessage()
   const currentAccount = useCurrentAccount()
   const { currentWallet } = useCurrentWallet()
-  const router = useRouter()
-  const { setAuth } = useAuthStore()
 
   const handleSignInWithWallet = useCallback(async () => {
     if (!currentAccount || !currentWallet) return
@@ -66,32 +62,18 @@ export default function LoginForm() {
 
       toast.success('Login successful!')
 
-      // Force session refresh with optimized timing
+      // Force session refresh
       await updateSession()
-      await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Fetch fresh session with faster retries
-      let session = null
-      for (let i = 0; i < 2; i++) {
-        const response = await fetch('/api/auth/session')
-        session = await response.json()
-        if (session?.user?.id) break
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+      // Small delay to ensure session is updated
+      await new Promise(resolve => setTimeout(resolve, 300))
 
-      console.log('Fresh session after login:', session)
-
-      // Update Zustand store
-      if (session?.user) {
-        setAuth(session.user.id, session.user.profileComplete || false)
-      }
-
-      // Hard reload to let middleware handle redirect
-      window.location.href = session?.user?.profileComplete ? '/members' : '/complete-profile'
+      // Redirect and let middleware handle the rest
+      window.location.href = '/members'
     } finally {
       setLoading(false)
     }
-  }, [currentAccount, currentWallet, signPersonalMessage, router, setAuth, updateSession])
+  }, [currentAccount, currentWallet, signPersonalMessage, updateSession])
 
   const handleLogout = useCallback(async () => {
     try {

@@ -26,24 +26,29 @@ export const usePresenceChannel = (userId: string | null, profileComplete: boole
 
     useEffect(() => {
         if (!userId || !profileComplete) return;
-        if (!channelRef.current) {
-            channelRef.current = pusherClient.subscribe('presence-match-me');
 
-            channelRef.current.bind('pusher:subscription_succeeded', async (members: Members) => {
-                handleSetMembers(Object.keys(members.members));
-                await updateLastActive();
-            })
+        // Delay Pusher subscription to avoid blocking initial page load
+        const timeoutId = setTimeout(() => {
+            if (!channelRef.current) {
+                channelRef.current = pusherClient.subscribe('presence-match-me');
 
-            channelRef.current.bind('pusher:member_added', (member: Record<string, any>) => {
-                handleAddMember(member.id);
-            })
+                channelRef.current.bind('pusher:subscription_succeeded', async (members: Members) => {
+                    handleSetMembers(Object.keys(members.members));
+                    await updateLastActive();
+                })
 
-            channelRef.current.bind('pusher:member_removed', (member: Record<string, any>) => {
-                handleRemoveMember(member.id);
-            });
-        }
+                channelRef.current.bind('pusher:member_added', (member: Record<string, any>) => {
+                    handleAddMember(member.id);
+                })
+
+                channelRef.current.bind('pusher:member_removed', (member: Record<string, any>) => {
+                    handleRemoveMember(member.id);
+                });
+            }
+        }, 1000); // Delay 1 second after page load
 
         return () => {
+            clearTimeout(timeoutId);
             if (channelRef.current) {
                 channelRef.current.unsubscribe();
                 channelRef.current.unbind('pusher:subscription_succeeded', handleSetMembers);
