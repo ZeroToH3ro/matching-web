@@ -112,7 +112,7 @@ const nextConfig = {
               "font-src 'self' data:",
               "connect-src 'self' https: wss: ws:",
               "frame-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org https://secure.walletconnect.com https://secure.walletconnect.org",
-              "frame-ancestors 'self' https://*.farcaster.xyz https://*.warpcast.com"
+              "frame-ancestors 'self' https://farcaster.xyz https://*.farcaster.xyz https://warpcast.com https://*.warpcast.com"
             ].join('; ')
           }
         ]
