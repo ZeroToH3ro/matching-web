@@ -7,7 +7,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'react-toastify'
 import { Web3AuthMessage } from '@/lib/Web3AuthMessage'
 import { signInUser } from '@/app/actions/authActions'
-import { useAuthStore } from '@/hooks/useAuthStore'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { useAccount, useSignMessage } from 'wagmi'
 import { useWeb3Modal } from '@web3modal/wagmi/react'
@@ -44,7 +43,6 @@ function HomeLoginButtonInner() {
 
   // Shared hooks
   const { update: updateSession, data: session, status } = useSession()
-  const { setAuth } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [showWalletModal, setShowWalletModal] = useState(false)
   const connectButtonRef = useRef<HTMLDivElement>(null)
@@ -139,33 +137,21 @@ function HomeLoginButtonInner() {
 
       toast.success('Login successful!')
 
-      // Update session with optimized timing
+      // Update session once
       await updateSession()
-      await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Fetch fresh session with faster retries
-      let session = null
-      for (let i = 0; i < 2; i++) {
-        const response = await fetch('/api/auth/session')
-        session = await response.json()
-        if (session?.user?.id) break
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+      // Small delay to ensure session is updated
+      await new Promise(resolve => setTimeout(resolve, 300))
 
-      // Update Zustand store
-      if (session?.user) {
-        setAuth(session.user.id, session.user.profileComplete || false)
-      }
-
-      // Redirect
-      window.location.href = session?.user?.profileComplete ? '/members' : '/complete-profile'
+      // Redirect and let middleware handle the rest
+      window.location.href = '/members'
     } catch (error) {
       console.error('Error signing in:', error)
       toast.error('Login failed')
     } finally {
       setLoading(false)
     }
-  }, [currentAccount, currentWallet, signPersonalMessage, updateSession, setAuth])
+  }, [currentAccount, currentWallet, signPersonalMessage, updateSession])
 
   const handleEvmSignIn = useCallback(async () => {
     if (!evmAddress) return
@@ -187,33 +173,21 @@ function HomeLoginButtonInner() {
 
       toast.success('Login successful!')
 
-      // Update session with optimized timing
+      // Update session once
       await updateSession()
-      await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Fetch fresh session with faster retries
-      let session = null
-      for (let i = 0; i < 2; i++) {
-        const response = await fetch('/api/auth/session')
-        session = await response.json()
-        if (session?.user?.id) break
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+      // Small delay to ensure session is updated
+      await new Promise(resolve => setTimeout(resolve, 300))
 
-      // Update Zustand store
-      if (session?.user) {
-        setAuth(session.user.id, session.user.profileComplete || false)
-      }
-
-      // Redirect
-      window.location.href = session?.user?.profileComplete ? '/members' : '/complete-profile'
+      // Redirect and let middleware handle the rest
+      window.location.href = '/members'
     } catch (error) {
       console.error('Error signing in:', error)
       toast.error('Login failed')
     } finally {
       setLoading(false)
     }
-  }, [evmAddress, signEvmMessage, updateSession, setAuth])
+  }, [evmAddress, signEvmMessage, updateSession])
 
   const handleLoginClick = () => {
     // Always show wallet selection modal when not authenticated

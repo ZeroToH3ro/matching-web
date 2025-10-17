@@ -15,9 +15,15 @@ import { networkConfig } from '@/configs/networkConfig'
 import { RegisterEnokiWallets } from '@/providers/RegisterEnokiWallets'
 import { WalrusClientProvider } from '@/providers/WalrusClientContext'
 import { CurrentUserProvider } from '@/contexts/CurrentUserContext'
+import { Web3ModalProvider as Web3ModalContextProvider } from '@/contexts/Web3ModalContext'
 import { SignInWithWalletDialog } from './SignInWithWalletDialog'
 import AuthStateSync from './AuthStateSync'
-import { EVMWeb3Provider } from './EVMWeb3Provider'
+import dynamic from 'next/dynamic'
+
+// Load Web3ModalProvider only on client-side to avoid SSR issues with indexedDB
+const Web3ModalProvider = dynamic(() => import('@/context'), {
+  ssr: false,
+})
 
 const preferredWallets = ['Enoki Google']
 const queryClient = new QueryClient()
@@ -55,10 +61,14 @@ export default function Providers({
 
   useEffect(() => {
     if (!isUnreadCountSet.current && userId) {
-      getUnreadMessageCount().then(count => {
-        setUnreadCount(count)
-      })
+      // Delay to avoid blocking initial page load
+      const timeoutId = setTimeout(() => {
+        getUnreadMessageCount().then(count => {
+          setUnreadCount(count)
+        })
+      }, 1000)
       isUnreadCountSet.current = true
+      return () => clearTimeout(timeoutId)
     }
   }, [setUnreadCount, userId])
   usePresenceChannel(userId, profileComplete)
@@ -67,43 +77,45 @@ export default function Providers({
     <SessionProvider>
       <AuthStateSync />
       <QueryClientProvider client={queryClient}>
-        <EVMWeb3Provider>
-          <NextUIProvider>
-            <ToastContainer
-              position="bottom-right"
-              hideProgressBar
-              autoClose={5000}
-              newestOnTop={true}
-              closeOnClick={true}
-              rtl={false}
-              pauseOnFocusLoss={false}
-              draggable={true}
-              pauseOnHover={true}
-              style={{ zIndex: 9999999 }}
-              toastStyle={{ zIndex: 9999999 }}
-              className="!z-[9999999]"
-              toastClassName="!z-[9999999]"
-            />
-            <CurrentUserProvider>
-              <SuiClientProvider
-                networks={networkConfig}
-                defaultNetwork={suiNetwork}
-              >
-                <RegisterEnokiWallets
-                  googleClientId={googleClientId}
-                  enokiApiKey={enokiApiKey}
-                  redirectUrl={redirectUrl}
-                />
-                <WalrusClientProvider>
-                  <WalletProvider autoConnect preferredWallets={preferredWallets}>
-                    <SignInWithWalletDialog />
-                    {children}
-                  </WalletProvider>
-                </WalrusClientProvider>
-              </SuiClientProvider>
-            </CurrentUserProvider>
-          </NextUIProvider>
-        </EVMWeb3Provider>
+        <Web3ModalProvider>
+          <Web3ModalContextProvider>
+            <NextUIProvider>
+              <ToastContainer
+                position="bottom-right"
+                hideProgressBar
+                autoClose={5000}
+                newestOnTop={true}
+                closeOnClick={true}
+                rtl={false}
+                pauseOnFocusLoss={false}
+                draggable={true}
+                pauseOnHover={true}
+                style={{ zIndex: 9999999 }}
+                toastStyle={{ zIndex: 9999999 }}
+                className="!z-[9999999]"
+                toastClassName="!z-[9999999]"
+              />
+              <CurrentUserProvider>
+                <SuiClientProvider
+                  networks={networkConfig}
+                  defaultNetwork={suiNetwork}
+                >
+                  <RegisterEnokiWallets
+                    googleClientId={googleClientId}
+                    enokiApiKey={enokiApiKey}
+                    redirectUrl={redirectUrl}
+                  />
+                  <WalrusClientProvider>
+                    <WalletProvider autoConnect preferredWallets={preferredWallets}>
+                      <SignInWithWalletDialog />
+                      {children}
+                    </WalletProvider>
+                  </WalrusClientProvider>
+                </SuiClientProvider>
+              </CurrentUserProvider>
+            </NextUIProvider>
+          </Web3ModalContextProvider>
+        </Web3ModalProvider>
       </QueryClientProvider>
     </SessionProvider>
   )

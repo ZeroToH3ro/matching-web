@@ -124,10 +124,8 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
         const mediaIds = (dynamicField.data.content.fields as any).value as string[];
         console.log("[Gallery] Found", mediaIds.length, "media items");
 
-        // Fetch details for each media
-        const mediaList: BlockchainMedia[] = [];
-
-        for (const mediaId of mediaIds) {
+        // Fetch details for each media in parallel for better performance
+        const mediaPromises = mediaIds.map(async (mediaId) => {
           try {
             const mediaObj = await client.getObject({
               id: mediaId,
@@ -136,11 +134,6 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
 
             if (mediaObj.data?.content && "fields" in mediaObj.data.content) {
               const mFields = mediaObj.data.content.fields as any;
-              console.log("[Gallery] Media fields:", {
-                id: mediaId,
-                created_at: mFields.created_at,
-                created_at_type: typeof mFields.created_at
-              });
 
               // Only show images (contentType === 0)
               if (mFields.content_type === 0) {
@@ -168,13 +161,18 @@ export default function BlockchainPhotoGallery({ refreshTrigger }: Props) {
                   url: `${AGGREGATOR_URLS[0]}/${mFields.walrus_blob_id}`,
                 };
 
-                mediaList.push(media);
+                return media;
               }
             }
           } catch (err) {
             console.error("[Gallery] Error loading media:", mediaId, err);
           }
-        }
+          return null;
+        });
+
+        // Wait for all media to load in parallel
+        const mediaResults = await Promise.all(mediaPromises);
+        const mediaList = mediaResults.filter((m): m is BlockchainMedia => m !== null);
 
         // Sort by creation date (newest first)
         mediaList.sort((a, b) =>

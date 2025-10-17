@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 
 const analyticsService = getAvatarAnalyticsService();
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const userId = await getAuthUserId();
     if (!userId) {
@@ -16,6 +16,11 @@ export async function GET() {
         { status: 401 }
       );
     }
+
+    // Parse query parameters for optional data
+    const { searchParams } = new URL(request.url);
+    const includeStats = searchParams.get('includeStats') === 'true';
+    const includeEncryption = searchParams.get('includeEncryption') === 'true';
 
     // Get user avatar data
     const user = await prisma.user.findUnique({
@@ -61,34 +66,52 @@ export async function GET() {
       }
     }
 
-    // Get encryption info if available
-    let encryptionInfo = null;
-    if (user.avatarSealPolicyId) {
+    const hasAvatar = !!(user.publicAvatarBlobId || user.privateAvatarBlobId);
+
+    // Build base response
+    const response: any = {
+      success: true,
+      hasAvatar,
+      settings,
+      data: {
+        hasAvatar,
+        publicUrl,
+        privateUrl,
+        settings,
+        uploadedAt: user.avatarUploadedAt
+      }
+    };
+
+    // Only fetch encryption info if explicitly requested
+    if (includeEncryption && user.avatarSealPolicyId) {
       try {
         const { AvatarEncryptionService } = await import("@/services/avatarEncryptionService");
         const encryptionService = new AvatarEncryptionService();
-        encryptionInfo = await encryptionService.getEncryptionInfo(user.avatarSealPolicyId);
+        const encryptionInfo = await encryptionService.getEncryptionInfo(user.avatarSealPolicyId);
+
+        response.data.encryption = encryptionInfo ? {
+          active: encryptionInfo.active,
+          allowedUsers: encryptionInfo.allowedUsers,
+          createdAt: encryptionInfo.createdAt,
+          lastAccessed: encryptionInfo.lastAccessed,
+          settings: encryptionInfo.settings
+        } : null;
       } catch (error) {
         console.warn('Failed to get encryption info:', error);
+        response.data.encryption = null;
       }
     }
 
-    // Get usage statistics for the user
-    let stats = null;
-    const hasAvatar = !!(user.publicAvatarBlobId || user.privateAvatarBlobId);
-    
-    if (hasAvatar) {
+    // Only fetch usage statistics if explicitly requested
+    if (includeStats && hasAvatar) {
       try {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setMonth(endDate.getMonth() - 1); // Last month
 
-        const [accessPatterns, engagement] = await Promise.all([
-          analyticsService.getAccessPatterns(startDate, endDate, userId),
-          analyticsService.getUserEngagement(startDate, endDate, userId)
-        ]);
+        const accessPatterns = await analyticsService.getAccessPatterns(startDate, endDate, userId);
 
-        stats = {
+        response.data.stats = {
           totalViews: accessPatterns.totalAccesses,
           uniqueViewers: accessPatterns.topViewers.length,
           lastViewed: accessPatterns.totalAccesses > 0 ? endDate.toISOString() : undefined,
@@ -98,34 +121,20 @@ export async function GET() {
         };
       } catch (error) {
         console.warn('Failed to get avatar stats:', error);
+        response.data.stats = null;
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      hasAvatar,
-      settings,
-      stats,
-      data: {
-        hasAvatar,
-        publicUrl,
-        privateUrl,
-        settings,
-        uploadedAt: user.avatarUploadedAt,
-        encryption: encryptionInfo ? {
-          active: encryptionInfo.active,
-          allowedUsers: encryptionInfo.allowedUsers,
-          createdAt: encryptionInfo.createdAt,
-          lastAccessed: encryptionInfo.lastAccessed,
-          settings: encryptionInfo.settings
-        } : null
-      }
-    });
+    // Add cache headers for performance
+    const headers = new Headers();
+    headers.set('Cache-Control', 'private, max-age=60'); // Cache for 1 minute
+
+    return NextResponse.json(response, { headers });
 
   } catch (error) {
     console.error("[API] Get avatar info error:", error);
     return NextResponse.json(
-      { 
+      {
         error: "Failed to get avatar info",
         message: error instanceof Error ? error.message : "Unknown error"
       },

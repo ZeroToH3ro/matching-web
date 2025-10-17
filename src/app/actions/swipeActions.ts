@@ -10,21 +10,32 @@ const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID!;
 const DISCOVERY_MODULE = `${PACKAGE_ID}::discovery`;
 
 /**
- * Get randomized members for swipe mode
+ * Get randomized members for swipe mode (optimized)
  * Uses Sui on-chain randomness to shuffle members
  */
 export async function getRandomizedMembers() {
   try {
     const userId = await getAuthUserId();
 
-    // Get all members except current user
+    // Optimize: Only fetch necessary fields and limit to 20 members
     const members = await prisma.member.findMany({
       where: {
         userId: {
           not: userId,
         },
       },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        name: true,
+        image: true,
+        gender: true,
+        dateOfBirth: true,
+        city: true,
+        country: true,
+        description: true,
+        created: true,
+        updated: true,
         user: {
           select: {
             profileObjectId: true,
@@ -32,7 +43,10 @@ export async function getRandomizedMembers() {
           },
         },
       },
-      take: 50, // Limit to 50 for performance
+      take: 20, // Reduced from 50 to 20 for better performance
+      orderBy: {
+        updated: 'desc', // Get recently active members first
+      },
     });
 
     // Shuffle using client-side randomness as fallback

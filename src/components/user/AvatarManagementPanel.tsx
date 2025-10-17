@@ -45,12 +45,13 @@ export function AvatarManagementPanel({ userId, className }: AvatarManagementPan
 
   const fetchAvatarInfo = async () => {
     try {
-      const response = await fetch(`/api/avatar/info`);
+      // Request with stats for the management panel
+      const response = await fetch(`/api/avatar/info?includeStats=true`);
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setSettings(data.settings || settings);
-          setStats(data.stats || null);
+          setSettings(data.data?.settings || data.settings || settings);
+          setStats(data.data?.stats || null);
           setHasAvatar(data.hasAvatar || false);
         }
       }

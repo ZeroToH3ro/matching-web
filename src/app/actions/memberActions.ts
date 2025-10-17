@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
 import type { Member, Photo } from '@prisma/client';
 import { addYears } from 'date-fns';
@@ -122,13 +123,14 @@ export async function getMembers(params: GetMemberParams): Promise<PaginatedResp
     }
 }
 
-export async function getMemberByUserId(userId: string) {
+// Cached version to avoid duplicate queries in same render cycle
+export const getMemberByUserId = cache(async (userId: string) => {
     try {
         return prisma.member.findUnique({ where: { userId } })
     } catch (error) {
         console.log(error);
     }
-}
+})
 
 export async function getMemberPhotosByUserId(userId: string) {
     const currentUserId = await getAuthUserId();

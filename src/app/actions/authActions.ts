@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { auth, signIn, signOut } from '@/auth'
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/mail'
 import { prisma } from '@/lib/prisma'
@@ -124,12 +125,13 @@ export async function getUserById(id: string) {
   return prisma.user.findUnique({ where: { id } })
 }
 
-export async function getAuthUserId() {
+// Cached version to avoid duplicate auth calls in same render cycle
+export const getAuthUserId = cache(async () => {
   const session = await auth()
   const userId = session?.user?.id
   if (!userId) throw new Error('Unauthorized')
   return userId
-}
+})
 
 export async function completeSocialLoginProfile(
   data: ProfileSchema
