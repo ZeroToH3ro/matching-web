@@ -97,12 +97,12 @@ export default function EditForm({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 md:gap-6">
       {/* On-Chain Profile Status */}
       <ErrorBoundary
         fallback={
-          <div className="p-4 border border-yellow-200 rounded-lg bg-yellow-50">
-            <p className="text-yellow-600 text-sm">
+          <div className="p-3 md:p-4 border border-yellow-200 rounded-lg bg-yellow-50">
+            <p className="text-yellow-600 text-xs md:text-sm">
               Blockchain features are temporarily unavailable. You can still edit your profile.
             </p>
           </div>
@@ -120,31 +120,31 @@ export default function EditForm({
       {/* Profile Edit Form */}
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4 md:gap-6"
       >
         {/* Name Field */}
-      <div className="space-y-2">
-        <Label htmlFor="name" className="text-base font-medium">
+      <div className="space-y-1.5 md:space-y-2">
+        <Label htmlFor="name" className="text-sm md:text-base font-medium">
           Name
         </Label>
         <Input
           id="name"
           {...register("name")}
           defaultValue={member.name}
-          className="h-12"
+          className="h-10 md:h-12 text-sm md:text-base"
           aria-invalid={!!errors.name}
         />
         {errors.name && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" />
+          <p className="text-xs md:text-sm text-destructive flex items-center gap-1">
+            <AlertCircle className="h-3 w-3 flex-shrink-0" />
             {errors.name.message}
           </p>
         )}
       </div>
 
       {/* Description Field */}
-      <div className="space-y-2">
-        <Label htmlFor="description" className="text-base font-medium">
+      <div className="space-y-1.5 md:space-y-2">
+        <Label htmlFor="description" className="text-sm md:text-base font-medium">
           Description
         </Label>
         <Textarea
@@ -152,52 +152,52 @@ export default function EditForm({
           {...register("description")}
           defaultValue={member.description}
           rows={6}
-          className="resize-none"
+          className="resize-none text-sm md:text-base"
           aria-invalid={!!errors.description}
         />
         {errors.description && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" />
+          <p className="text-xs md:text-sm text-destructive flex items-center gap-1">
+            <AlertCircle className="h-3 w-3 flex-shrink-0" />
             {errors.description.message}
           </p>
         )}
       </div>
 
       {/* City and Country Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="city" className="text-base font-medium">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        <div className="space-y-1.5 md:space-y-2">
+          <Label htmlFor="city" className="text-sm md:text-base font-medium">
             City
           </Label>
           <Input
             id="city"
             {...register("city")}
             defaultValue={member.city}
-            className="h-12"
+            className="h-10 md:h-12 text-sm md:text-base"
             aria-invalid={!!errors.city}
           />
           {errors.city && (
-            <p className="text-sm text-destructive flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
+            <p className="text-xs md:text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3 w-3 flex-shrink-0" />
               {errors.city.message}
             </p>
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="country" className="text-base font-medium">
+        <div className="space-y-1.5 md:space-y-2">
+          <Label htmlFor="country" className="text-sm md:text-base font-medium">
             Country
           </Label>
           <Input
             id="country"
             {...register("country")}
             defaultValue={member.country}
-            className="h-12"
+            className="h-10 md:h-12 text-sm md:text-base"
             aria-invalid={!!errors.country}
           />
           {errors.country && (
-            <p className="text-sm text-destructive flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
+            <p className="text-xs md:text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3 w-3 flex-shrink-0" />
               {errors.country.message}
             </p>
           )}
@@ -207,8 +207,8 @@ export default function EditForm({
       {/* Server Error Alert */}
       {errors.root?.serverError && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+          <AlertCircle className="h-3 w-3 md:h-4 md:w-4" />
+          <AlertDescription className="text-xs md:text-sm">
             {errors.root.serverError.message}
           </AlertDescription>
         </Alert>
@@ -217,12 +217,12 @@ export default function EditForm({
       {/* Submit Button */}
       <Button
         type="submit"
-        className="self-end min-w-[140px]"
+        className="w-full md:w-auto md:self-end md:min-w-[140px] text-sm md:text-base h-10 md:h-11"
         disabled={!isValid || !isDirty || isSubmitting}
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin" />
             Updating...
           </>
         ) : (

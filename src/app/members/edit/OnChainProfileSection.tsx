@@ -174,12 +174,12 @@ export default function OnChainProfileSection({ member, hasOnChainProfile, walle
     return (
       <>
         <Alert className="border-blue-500 bg-blue-50">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="space-y-1">
-                <h4 className="font-semibold text-sm">Wallet Required</h4>
-                <AlertDescription className="text-sm">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4">
+            <div className="flex items-start gap-2 md:gap-3 flex-1">
+              <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1 min-w-0">
+                <h4 className="font-semibold text-xs md:text-sm">Wallet Required</h4>
+                <AlertDescription className="text-xs md:text-sm">
                   A wallet address is required to create an on-chain profile and access Web3 features.
                 </AlertDescription>
               </div>
@@ -189,7 +189,7 @@ export default function OnChainProfileSection({ member, hasOnChainProfile, walle
                 type="button"
                 size="sm"
                 onClick={() => setConnectWalletOpen(true)}
-                className="ml-4 bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 w-full md:w-auto md:ml-4 flex-shrink-0"
               >
                 Connect Wallet
               </Button>
@@ -208,18 +208,18 @@ export default function OnChainProfileSection({ member, hasOnChainProfile, walle
   return (
     <>
       <Alert className={onChainProfileCreated ? "border-green-500 bg-green-50" : "border-yellow-500 bg-yellow-50"}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4">
+          <div className="flex items-start gap-2 md:gap-3 flex-1 min-w-0">
             {onChainProfileCreated ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+              <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-600 mt-0.5 flex-shrink-0" />
             ) : (
-              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
             )}
-            <div className="space-y-1">
-              <h4 className="font-semibold text-sm">
+            <div className="space-y-1 min-w-0">
+              <h4 className="font-semibold text-xs md:text-sm">
                 {onChainProfileCreated ? "Blockchain Profile Active" : "No Blockchain Profile"}
               </h4>
-              <AlertDescription className="text-sm">
+              <AlertDescription className="text-xs md:text-sm">
                 {onChainProfileCreated ? (
                   "Your profile is securely stored on the Sui blockchain with end-to-end encryption."
                 ) : needsWalletConnection ? (
@@ -236,21 +236,21 @@ export default function OnChainProfileSection({ member, hasOnChainProfile, walle
               onClick={needsWalletConnection ? () => setConnectWalletOpen(true) : handleCreateOnChainProfile}
               disabled={isCreatingOnChain}
               size="sm"
-              className="ml-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
+              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 w-full md:w-auto md:ml-4 flex-shrink-0 text-xs md:text-sm"
             >
               {isCreatingOnChain ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4 animate-spin" />
                   Creating...
                 </>
               ) : needsWalletConnection ? (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Sparkles className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
                   Connect Wallet
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Sparkles className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
                   Create On-Chain
                 </>
               )}

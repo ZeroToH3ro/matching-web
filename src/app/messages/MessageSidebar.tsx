@@ -50,26 +50,28 @@ export default function MessageSidebar() {
   );
 
   return (
-    <div className="flex flex-col shadow-md rounded-lg cursor-pointer">
+    <div className="flex flex-row md:flex-col shadow-md rounded-lg cursor-pointer">
       {items.map(
         ({ key, icon: Icon, label, chip }) => (
           <div
             key={key}
             className={clsx(
-              "flex flex-row items-center rounded-t-lg gap-2 p-3",
+              "flex flex-row items-center gap-2 p-2 md:p-3 flex-1 md:flex-none justify-center md:justify-start",
               {
-                "text-default font-semibold":
+                "text-default font-semibold bg-default-100":
                   selected === key,
                 "text-black hover:text-default/70":
                   selected !== key,
+                "rounded-l-lg md:rounded-t-lg md:rounded-l-none": key === "inbox",
+                "rounded-r-lg md:rounded-t-none md:rounded-l-lg": key === "outbox",
               }
             )}
             onClick={() => handleSelect(key)}
           >
-            <Icon size={24} />
-            <div className="flex justify-between flex-grow">
-              <span>{label}</span>
-              {chip && <Chip>{unreadCount}</Chip>}
+            <Icon size={20} className="md:w-6 md:h-6" />
+            <div className="flex items-center gap-2 md:justify-between md:flex-grow">
+              <span className="text-sm md:text-base">{label}</span>
+              {chip && <Chip size="sm" className="text-xs">{unreadCount}</Chip>}
             </div>
           </div>
         )

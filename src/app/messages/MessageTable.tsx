@@ -38,7 +38,7 @@ export default function MessageTable({
 
   return (
     <div className="flex flex-col h-[80vh]">
-      <Card>
+      <Card className="p-0">
         <Table
           aria-label="Table with messages"
           selectionMode="single"
@@ -46,7 +46,12 @@ export default function MessageTable({
             selectRow(key)
           }
           shadow="none"
-          className="flex flex-col gap-3 h-[80vh] overflow-auto"
+          className="flex flex-col gap-2 md:gap-3 h-[80vh] overflow-auto"
+          classNames={{
+            wrapper: "p-0",
+            th: "text-xs md:text-sm px-2 md:px-3 py-2 md:py-3",
+            td: "text-xs md:text-sm px-2 md:px-3 py-2 md:py-3",
+          }}
         >
           <TableHeader columns={columns}>
             {(column) => (
@@ -56,6 +61,9 @@ export default function MessageTable({
                   column.key === "text"
                     ? "50%"
                     : undefined
+                }
+                className={
+                  column.key === "text" ? "hidden md:table-cell" : ""
                 }
               >
                 {column.label}
@@ -77,6 +85,8 @@ export default function MessageTable({
                       !item.dateRead && !isOutbox
                         ? "font-semibold"
                         : ""
+                    } ${
+                      columnKey === "text" ? "hidden md:table-cell" : ""
                     }`}
                   >
                     <MessageTableCell
@@ -100,12 +110,14 @@ export default function MessageTable({
           </TableBody>
         </Table>
 
-        <div className="sticky bottom-0 pb-3 mr-3 text-right">
+        <div className="sticky bottom-0 pb-2 md:pb-3 px-2 md:px-3 text-center md:text-right bg-background">
           <Button
             color="default"
             isLoading={loadingMore}
             isDisabled={!hasMore}
             onClick={loadMore}
+            size="sm"
+            className="md:size-md"
           >
             {hasMore
               ? "Load more"

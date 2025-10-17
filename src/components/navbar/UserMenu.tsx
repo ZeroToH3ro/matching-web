@@ -33,17 +33,17 @@ export default function UserMenu({ userInfo }: Props) {
   const { address: evmAddress } = useAccount();
   const currentAccount = useCurrentAccount();
   const { data: session } = useSession();
-  const { setUserInfo } = useAuthStore();
+  const { setUserInfo, clearAuth } = useAuthStore();
   const [copied, setCopied] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(userInfo?.avatarUrl || null);
 
   // Get the active wallet address (EVM or Sui)
   const walletAddress = evmAddress || currentAccount?.address;
 
-  // Fetch user's avatar from avatar service
+  // Fetch user's avatar from avatar service (optimized with caching)
   useEffect(() => {
     const fetchAvatar = async () => {
-      if (session?.user?.id) {
+      if (session?.user?.id && !avatarUrl) {
         try {
           // For current user, use avatar info API to get private avatar
           const response = await fetch('/api/avatar/info');
@@ -68,13 +68,12 @@ export default function UserMenu({ userInfo }: Props) {
       }
     };
 
-    // Only fetch if we don't have cached avatarUrl
-    if (!avatarUrl) {
-      fetchAvatar();
-    }
+    // Only fetch if we don't have avatarUrl
+    fetchAvatar();
 
     // Listen for avatar updates
     const handleAvatarUpdate = () => {
+      setAvatarUrl(null); // Clear cache to trigger refetch
       fetchAvatar();
     };
 
@@ -94,13 +93,23 @@ export default function UserMenu({ userInfo }: Props) {
 
   const handleLogout = async () => {
     try {
+      // Clear auth store completely
+      clearAuth();
+
       // Disconnect both Sui and EVM wallets
       disconnectWallet();
       disconnectEvmWallet();
-    } catch (error) {
-      console.error("Error disconnecting wallet:", error);
-    } finally {
+
+      // Sign out from NextAuth
       await signOutUser();
+
+      // Force hard reload to home to ensure clean state
+      window.location.href = '/';
+    } catch (error) {
+      console.error("Error logging out:", error);
+      // Even if there's an error, clear state and redirect to home
+      clearAuth();
+      window.location.href = '/';
     }
   };
 

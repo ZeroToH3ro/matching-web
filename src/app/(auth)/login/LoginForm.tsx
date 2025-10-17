@@ -66,15 +66,18 @@ export default function LoginForm() {
 
       toast.success('Login successful!')
 
-      // Force session refresh
+      // Force session refresh with optimized timing
       await updateSession()
+      await new Promise(resolve => setTimeout(resolve, 200))
 
-      // Small delay to ensure session is propagated
-      await new Promise(resolve => setTimeout(resolve, 300))
-
-      // Fetch fresh session
-      const response = await fetch('/api/auth/session')
-      const session = await response.json()
+      // Fetch fresh session with faster retries
+      let session = null
+      for (let i = 0; i < 2; i++) {
+        const response = await fetch('/api/auth/session')
+        session = await response.json()
+        if (session?.user?.id) break
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
 
       console.log('Fresh session after login:', session)
 
