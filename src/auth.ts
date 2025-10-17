@@ -49,6 +49,36 @@ const result = NextAuth({
   },
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
+  // Cookie settings for iframe support (Farcaster, etc.)
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'none', // Allow cookies in iframe/third-party context
+        path: '/',
+        secure: true, // Required when sameSite='none'
+      },
+    },
+    callbackUrl: {
+      name: `__Secure-next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'none',
+        path: '/',
+        secure: true,
+      },
+    },
+    csrfToken: {
+      name: `__Host-next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'none',
+        path: '/',
+        secure: true,
+      },
+    },
+  },
   ...authConfig,
 })
 
